@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Image, SegmentedControlIOS } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColor } from '../hooks/useThemeColor';
+import { useThemeColor } from '../hooks/use-theme-color';
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
@@ -137,7 +137,7 @@ const MusicLibrary = () => {
       <Image source={{ uri: item.coverUri }} style={styles.albumCoverImage} />
       <ThemedText style={styles.albumTitle} type="defaultSemiBold">{item.title}</ThemedText>
       <ThemedText style={styles.albumArtist} type="default">{item.artist}</ThemedText>
-      <ThemedText style={styles.albumYear} type="caption">{item.year}</ThemedText>
+      <ThemedText style={styles.albumYear} type="subtitle">{item.year}</ThemedText>
     </TouchableOpacity>
   );
 
@@ -148,7 +148,7 @@ const MusicLibrary = () => {
       </View>
       <View style={styles.artistInfo}>
         <ThemedText style={styles.artistName} type="defaultSemiBold">{item.name}</ThemedText>
-        <ThemedText style={styles.artistSongs} type="caption">{item.songCount} songs</ThemedText>
+        <ThemedText style={styles.artistSongs} type="subtitle">{item.songCount} songs</ThemedText>
       </View>
       <TouchableOpacity style={styles.artistFollowButton}>
         <Ionicons name="add" size={20} color={useThemeColor({}, 'tint')} />
@@ -165,7 +165,7 @@ const MusicLibrary = () => {
       <View style={styles.playlistInfo}>
         <ThemedText style={styles.playlistTitle} type="defaultSemiBold">{item.title}</ThemedText>
         <ThemedText style={styles.playlistDescription} type="default">{item.description}</ThemedText>
-        <ThemedText style={styles.playlistSongCount} type="caption">{item.songCount} songs</ThemedText>
+        <ThemedText style={styles.playlistSongCount} type="subtitle">{item.songCount} songs</ThemedText>
       </View>
     </TouchableOpacity>
   );
@@ -222,7 +222,7 @@ const MusicLibrary = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText style={styles.headerTitle} type="headlineLarge">Your Library</ThemedText>
+        <ThemedText style={styles.headerTitle} type="title">Your Library</ThemedText>
         
         <View style={styles.controlsRow}>
           <TouchableOpacity style={styles.viewModeButton} onPress={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}>
