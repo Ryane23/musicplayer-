@@ -1,50 +1,75 @@
-# Welcome to your Expo app 👋
+# Music Player App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A beautiful and functional music player built with React Native and Expo.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Play/Pause functionality
+- Skip to next/previous tracks
+- Progress bar with seeking capability
+- Volume control
+- Playlist management
+- Responsive UI with dark theme support
 
-   ```bash
-   npm install
-   ```
+## Getting Started
 
-2. Start the app
+### Prerequisites
 
-   ```bash
-   npx expo start
-   ```
+- Node.js (v16 or higher)
+- npm or yarn
+- Expo CLI (optional)
 
-In the output, you'll find options to open the app in a
+### Installation
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Clone or download the project
+2. Navigate to the project directory
+3. Install dependencies:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Or use the startup script:
 
-## Learn more
+```bash
+./start.sh
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### Running the App
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+To start the development server:
 
-## Join the community
+```bash
+npx expo start
+```
 
-Join our community of developers creating universal apps.
+Then use the Expo Go app on your device to scan the QR code, or use an emulator.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Project Structure
+
+- `app/` - Contains the main application screens and routes
+- `components/` - Reusable UI components
+- `contexts/` - React Context providers for state management
+- `services/` - Business logic and external service integrations
+- `types/` - TypeScript type definitions
+- `constants/` - Constant values used throughout the app
+- `hooks/` - Custom React hooks
+
+## Key Components
+
+- **MusicPlayerService**: Handles audio playback using expo-av
+- **MusicPlayerContext**: Provides global state management for the music player
+- **MusicPlayer**: UI component for playback controls and track info
+- **Playlist**: Displays the list of available tracks
+
+## Technologies Used
+
+- React Native
+- Expo
+- TypeScript
+- expo-av for audio playback
+- React Navigation for routing
+
+## Contributing
+
+Feel free to contribute to this project by submitting issues or pull requests.
