@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Component, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Animated, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -7,18 +8,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 
 const MiniPlayerComponent = () => {
+  const router = useRouter();
   const { 
     currentTrack, 
     isPlaying, 
     position, 
     duration, 
     togglePlayPause, 
-    playNext,
-    playPrevious
   } = useMusicPlayer();
   
   const tint = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
+  const background = useThemeColor({}, 'background');
+  const borderColor = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.1)';
   
   // State for image loading and error handling
   const [imageLoading, setImageLoading] = useState(false);
@@ -70,24 +72,24 @@ const MiniPlayerComponent = () => {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: background, borderColor }]}>
       <View style={styles.progressContainer}>
         <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: tint }]} />
       </View>
       
       <View style={styles.playerContent}>
-        <TouchableOpacity style={styles.albumArtContainer}>
+        <TouchableOpacity style={styles.albumArtContainer} onPress={() => router.push('/now-playing')}>
           {renderAlbumArt()}
         </TouchableOpacity>
         
-        <View style={styles.trackInfo}>
+        <TouchableOpacity style={styles.trackInfo} onPress={() => router.push('/now-playing')}>
           <ThemedText style={styles.trackTitle} numberOfLines={1} type="defaultSemiBold">
             {currentTrack.title || 'Unknown Title'}
           </ThemedText>
           <ThemedText style={styles.trackArtist} numberOfLines={1} type="default">
             {currentTrack.artist || 'Unknown Artist'}
           </ThemedText>
-        </View>
+        </TouchableOpacity>
         
         <View style={styles.controls}>
           <TouchableOpacity onPress={togglePlayPause} style={styles.playButton}>
@@ -99,9 +101,9 @@ const MiniPlayerComponent = () => {
           </TouchableOpacity>
         </View>
         
-        <TouchableOpacity style={styles.expandButton}>
+        <TouchableOpacity style={styles.expandButton} onPress={() => router.push('/now-playing')}>
           <Ionicons 
-            name="musical-notes" 
+            name="chevron-up" 
             size={20} 
             color={textColor} 
           />
@@ -114,18 +116,21 @@ const MiniPlayerComponent = () => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 94,
+    left: 16,
+    right: 16,
     zIndex: 1000,
     elevation: 10,
+    borderWidth: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: -4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
   },
   progressContainer: {
     height: 2,
@@ -138,12 +143,13 @@ const styles = StyleSheet.create({
   playerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   albumArtContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     overflow: 'hidden',
     marginRight: 12,
   },
@@ -154,7 +160,7 @@ const styles = StyleSheet.create({
   albumArtPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#333',
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -174,7 +180,11 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   playButton: {
-    padding: 8,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   expandButton: {
     padding: 8,
@@ -223,10 +233,10 @@ class ErrorBoundary extends Component<{children: ReactNode}, ErrorBoundaryState>
   }
 }
 
-export default function MiniPlayer(props: {}) {
+export default function MiniPlayer() {
   return (
     <ErrorBoundary>
-      <MiniPlayerComponent {...props} />
+      <MiniPlayerComponent />
     </ErrorBoundary>
   );
 }

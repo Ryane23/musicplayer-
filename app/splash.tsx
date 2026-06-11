@@ -1,14 +1,16 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image, Animated } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
-const SplashScreen = ({ navigation }: any) => {
-  const fadeAnim = new Animated.Value(1);
-  const scaleAnim = new Animated.Value(1);
+const SplashScreen = () => {
+  const router = useRouter();
+  const tint = useThemeColor({}, 'tint');
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     // Animate the splash screen elements
@@ -34,9 +36,9 @@ const SplashScreen = ({ navigation }: any) => {
       }),
     ]).start(() => {
       // Navigate to the main app after animation completes
-      navigation.replace('Home');
+      router.replace('/(tabs)');
     });
-  }, []);
+  }, [fadeAnim, router, scaleAnim]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -50,7 +52,7 @@ const SplashScreen = ({ navigation }: any) => {
         ]}
       >
         <View style={styles.logoContainer}>
-          <Ionicons name="musical-notes" size={80} color={useThemeColor({}, 'tint')} />
+          <Ionicons name="musical-notes" size={80} color={tint} />
           <ThemedText style={styles.appName} type="defaultSemiBold">MelodyLocal</ThemedText>
           <ThemedText style={styles.tagline} type="default">Premium music experience</ThemedText>
         </View>
@@ -65,7 +67,7 @@ const SplashScreen = ({ navigation }: any) => {
                   height: 10 + i * 5,
                   width: 20 + i * 10,
                   marginLeft: i * 15,
-                  backgroundColor: useThemeColor({}, 'tint'),
+                  backgroundColor: tint,
                   opacity: 0.7 - i * 0.1,
                 }
               ]}

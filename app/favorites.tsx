@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, FlatList, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import { MusicTrack } from '@/types/music';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
@@ -77,6 +76,7 @@ const mockFavoritePlaylists = [
 ];
 
 const FavoritesScreen = () => {
+  const tint = useThemeColor({}, 'tint');
   const [activeTab, setActiveTab] = useState<'tracks' | 'albums' | 'artists' | 'playlists'>('tracks');
   
   const { loadTracks, playTrack } = useMusicPlayer();
@@ -106,7 +106,7 @@ const FavoritesScreen = () => {
         <ThemedText style={styles.trackArtist} type="default">{item.artist}</ThemedText>
       </View>
       <TouchableOpacity style={styles.favoriteButton}>
-        <Ionicons name="heart" size={20} color={useThemeColor({}, 'tint')} />
+        <Ionicons name="heart" size={20} color={tint} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -131,7 +131,7 @@ const FavoritesScreen = () => {
         <ThemedText style={styles.artistName} type="defaultSemiBold">{item.name}</ThemedText>
       </View>
       <TouchableOpacity style={styles.followButton}>
-        <Ionicons name="checkmark" size={20} color={useThemeColor({}, 'tint')} />
+        <Ionicons name="checkmark" size={20} color={tint} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -203,18 +203,18 @@ const FavoritesScreen = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <ThemedText style={styles.headerTitle} type="defaultSemiBold">Favorites</ThemedText>
-        <TouchableOpacity style={styles.shuffleButton} onPress={() => handlePlayPlaylist(mockFavoriteTracks)}>
+        <TouchableOpacity style={[styles.shuffleButton, { backgroundColor: tint }]} onPress={() => handlePlayPlaylist(mockFavoriteTracks)}>
           <Ionicons name="shuffle" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
       
       <View style={styles.tabContainer}>
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'tracks' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'tracks' && { borderBottomColor: tint, borderBottomWidth: 2 }]}
           onPress={() => setActiveTab('tracks')}
         >
           <ThemedText 
-            style={[styles.tabText, activeTab === 'tracks' && styles.activeTabText]} 
+            style={[styles.tabText, activeTab === 'tracks' && { color: tint }]} 
             type={activeTab === 'tracks' ? "defaultSemiBold" : "default"}
           >
             Tracks
@@ -222,11 +222,11 @@ const FavoritesScreen = () => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'albums' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'albums' && { borderBottomColor: tint, borderBottomWidth: 2 }]}
           onPress={() => setActiveTab('albums')}
         >
           <ThemedText 
-            style={[styles.tabText, activeTab === 'albums' && styles.activeTabText]} 
+            style={[styles.tabText, activeTab === 'albums' && { color: tint }]} 
             type={activeTab === 'albums' ? "defaultSemiBold" : "default"}
           >
             Albums
@@ -234,11 +234,11 @@ const FavoritesScreen = () => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'artists' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'artists' && { borderBottomColor: tint, borderBottomWidth: 2 }]}
           onPress={() => setActiveTab('artists')}
         >
           <ThemedText 
-            style={[styles.tabText, activeTab === 'artists' && styles.activeTabText]} 
+            style={[styles.tabText, activeTab === 'artists' && { color: tint }]} 
             type={activeTab === 'artists' ? "defaultSemiBold" : "default"}
           >
             Artists
@@ -246,11 +246,11 @@ const FavoritesScreen = () => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'playlists' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'playlists' && { borderBottomColor: tint, borderBottomWidth: 2 }]}
           onPress={() => setActiveTab('playlists')}
         >
           <ThemedText 
-            style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]} 
+            style={[styles.tabText, activeTab === 'playlists' && { color: tint }]} 
             type={activeTab === 'playlists' ? "defaultSemiBold" : "default"}
           >
             Playlists
@@ -281,7 +281,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   shuffleButton: {
-    backgroundColor: useThemeColor({}, 'tint'),
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -300,14 +299,11 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: useThemeColor({}, 'tint'),
   },
   tabText: {
     fontSize: 16,
   },
   activeTabText: {
-    color: useThemeColor({}, 'tint'),
   },
   content: {
     flex: 1,

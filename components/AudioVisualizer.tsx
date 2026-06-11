@@ -3,7 +3,7 @@ import { View, StyleSheet, Animated } from 'react-native';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 const AudioVisualizer = ({ isPlaying }: { isPlaying: boolean }) => {
-  const bars = Array.from({ length: 20 }, (_, i) => i);
+  const bars = useRef(Array.from({ length: 20 }, (_, i) => i)).current;
   const animatedValues = useRef(bars.map(() => new Animated.Value(10))).current;
   const color = useThemeColor({}, 'tint');
 
@@ -39,7 +39,7 @@ const AudioVisualizer = ({ isPlaying }: { isPlaying: boolean }) => {
         )
       ).start();
     }
-  }, [isPlaying]);
+  }, [animatedValues, bars, isPlaying]);
 
   return (
     <View style={styles.container}>

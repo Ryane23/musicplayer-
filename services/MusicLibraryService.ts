@@ -1,14 +1,5 @@
 import * as MediaLibrary from 'expo-media-library';
-
-export interface MusicTrack {
-  id: string;
-  title: string;
-  artist: string;
-  album?: string;
-  duration: number;
-  uri: string;
-  artwork?: string;
-}
+import { MusicTrack } from '../types/music';
 
 export class MusicLibraryService {
   /**
@@ -17,6 +8,10 @@ export class MusicLibraryService {
   static async requestPermission(): Promise<boolean> {
     const { status } = await MediaLibrary.requestPermissionsAsync();
     return status === 'granted';
+  }
+
+  static async scanLocalMusic(): Promise<MusicTrack[]> {
+    return this.getAllMusic();
   }
 
   /**
@@ -53,7 +48,7 @@ export class MusicLibraryService {
       album: 'Unknown Album',
       duration: asset.duration ?? 0,
       uri: asset.uri,
-      artwork: undefined,
+      coverUri: undefined,
     }));
   }
 
@@ -84,3 +79,5 @@ export class MusicLibraryService {
     return tracks.find((track) => track.id === id);
   }
 }
+
+export type { MusicTrack };

@@ -1,516 +1,423 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, PanResponder, Dimensions, ScrollView, Image } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Ionicons } from '@expo/vector-icons';
-import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import AudioVisualizer from '@/components/AudioVisualizer';
+import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
+import { MusicTrack } from '@/types/music';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const fallbackTrack: MusicTrack = {
+  id: 'preview',
+  title: 'Select a Track',
+  artist: 'Your local library',
+  album: 'Offline Music',
+  duration: 240000,
+  uri: '',
+  coverUri: 'https://placehold.co/600x600/111827/F8FAFC?text=LOCAL',
+};
 
-const NowPlayingScreen = () => {
-  const { 
-    currentTrack, 
-    isPlaying, 
-    position, 
-    duration, 
-    volume, 
-    togglePlayPause, 
-    playNext, 
-    playPrevious, 
-    seekTo,
-    setVolume
+const speedOptions = [0.75, 1, 1.25, 1.5];
+
+function formatTime(millis: number) {
+  const totalSeconds = Math.floor(millis / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+export default function NowPlayingScreen() {
+  const router = useRouter();
+  const tint = useThemeColor({}, 'tint');
+  const textColor = useThemeColor({}, 'text');
+  const background = useThemeColor({}, 'background');
+  const surface = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.9)';
+  const borderColor = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.1)';
+  const {
+    currentTrack,
+    isPlaying,
+    position,
+    duration,
+    volume,
+    togglePlayPause,
+    playNext,
+    playPrevious,
   } = useMusicPlayer();
-  
+
   const [showLyrics, setShowLyrics] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [showVisualizer, setShowVisualizer] = useState(true);
-  const [currentLyric, setCurrentLyric] = useState(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const panY = useRef(new Animated.Value(0)).current;
+  const [favorite, setFavorite] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+  const [shuffle, setShuffle] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const pulse = useRef(new Animated.Value(0)).current;
 
-  // Animation for album art rotation
+  const track = currentTrack ?? fallbackTrack;
+  const trackDuration = duration || track.duration;
+  const progress = trackDuration > 0 ? Math.min((position / trackDuration) * 100, 100) : 0;
+
   useEffect(() => {
-    if (isPlaying) {
-      Animated.loop(
-        Animated.timing(animatedValue, {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
           toValue: 1,
-          duration: 20000, // Full rotation in 20 seconds
+          duration: 2600,
           useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      animatedValue.setValue(0);
-    }
-  }, [isPlaying]);
-
-  // Pan responder for swiping gestures
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderMove: (evt, gestureState) => {
-      if (gestureState.dy > 0) {
-        panY.setValue(gestureState.dy);
-      }
-    },
-    onPanResponderRelease: (evt, gestureState) => {
-      if (gestureState.dy > 100) {
-        // Swipe down to close
-        // This would typically navigate back
-      } else {
-        // Reset position
-        Animated.spring(panY, {
+        }),
+        Animated.timing(pulse, {
           toValue: 0,
+          duration: 2600,
           useNativeDriver: true,
-        }).start();
-      }
-    },
-  });
+        }),
+      ])
+    );
 
-  const rotate = animatedValue.interpolate({
+    animation.start();
+    return () => animation.stop();
+  }, [pulse]);
+
+  const ambientOpacity = pulse.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: [0.18, 0.34],
   });
-
-  const translateY = panY.interpolate({
-    inputRange: [-100, 0, 100],
-    outputRange: [-100, 0, 100],
-  });
-
-  const formatTime = (millis: number) => {
-    const totalSeconds = Math.floor(millis / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const progress = duration > 0 ? (position / duration) * 100 : 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Animated.View 
-        style={[
-          styles.content,
-          { 
-            transform: [{ translateY }] 
-          }
-        ]}
-        {...panResponder.panHandlers}
-      >
-        {/* Header */}
+    <SafeAreaView style={[styles.container, { backgroundColor: background }]}>
+      <Animated.View style={[styles.ambientLayer, { backgroundColor: tint, opacity: ambientOpacity }]} />
+      <View style={[styles.ambientLayerSecondary, { backgroundColor: favorite ? '#db2777' : '#0f766e' }]} />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => {}}>
-            <Ionicons name="close" size={24} color={useThemeColor({}, 'text')} />
+          <TouchableOpacity style={[styles.iconButton, { backgroundColor: surface, borderColor }]} onPress={() => router.back()}>
+            <Ionicons name="chevron-down" size={22} color={textColor} />
           </TouchableOpacity>
-          
-          <View style={styles.trackInfoHeader}>
-            {currentTrack?.title && (
-              <ThemedText style={styles.trackTitleHeader} numberOfLines={1} type="defaultSemiBold">
-                {currentTrack.title}
-              </ThemedText>
-            )}
-            {currentTrack?.artist && (
-              <ThemedText style={styles.trackArtistHeader} numberOfLines={1} type="default">
-                {currentTrack.artist}
-              </ThemedText>
-            )}
+          <View style={styles.headerTitle}>
+            <ThemedText type="defaultSemiBold" style={styles.headerEyebrow}>
+              Now Playing
+            </ThemedText>
+            <ThemedText type="default" style={styles.headerSubtext} numberOfLines={1}>
+              {track.album}
+            </ThemedText>
           </View>
-          
-          <TouchableOpacity onPress={() => setShowQueue(!showQueue)}>
-            <Ionicons name="list" size={24} color={useThemeColor({}, 'text')} />
+          <TouchableOpacity style={[styles.iconButton, { backgroundColor: surface, borderColor }]} onPress={() => setShowQueue(!showQueue)}>
+            <Ionicons name={showQueue ? 'list-circle' : 'list'} size={22} color={showQueue ? tint : textColor} />
           </TouchableOpacity>
         </View>
 
-        {/* Main Content */}
-        <ScrollView style={styles.mainContent}>
-          {/* Album Art */}
-          <Animated.View style={[
-            styles.albumArtContainer,
-            { transform: [{ rotate }] }
-          ]}>
-            {currentTrack?.coverUri ? (
-              <Image source={{ uri: currentTrack.coverUri }} style={styles.albumArt} />
-            ) : (
-              <View style={styles.albumArtPlaceholder}>
-                <Ionicons name="musical-notes" size={60} color="#FFFFFF" />
-              </View>
-            )}
-          </Animated.View>
-
-          {/* Track Info */}
-          <View style={styles.trackInfo}>
-            {currentTrack?.title && (
-              <ThemedText style={styles.trackTitle} type="defaultSemiBold" numberOfLines={1}>
-                {currentTrack.title}
-              </ThemedText>
-            )}
-            {currentTrack?.artist && (
-              <ThemedText style={styles.trackArtist} type="default" numberOfLines={1}>
-                {currentTrack.artist}
-              </ThemedText>
-            )}
-            {currentTrack?.album && (
-              <ThemedText style={styles.trackAlbum} type="default" numberOfLines={1}>
-                {currentTrack.album}
-              </ThemedText>
-            )}
-          </View>
-
-          {/* Audio Visualizer */}
-          {showVisualizer && (
-            <AudioVisualizer isPlaying={isPlaying} />
+        <View style={styles.artworkStage}>
+          <View style={[styles.artworkShadow, { backgroundColor: tint }]} />
+          {track.coverUri ? (
+            <Image source={{ uri: track.coverUri }} style={styles.artwork} />
+          ) : (
+            <View style={[styles.artwork, styles.artworkFallback, { backgroundColor: tint }]}>
+              <Ionicons name="musical-notes" size={58} color="#fff" />
+            </View>
           )}
+        </View>
 
-          {/* Progress Bar */}
-          <View style={styles.progressContainer}>
-            <ThemedText style={styles.timeText}>{formatTime(position)}</ThemedText>
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill,
-                  { 
-                    width: `${progress}%`,
-                    backgroundColor: useThemeColor({}, 'tint')
-                  }
-                ]} 
-              />
+        <View style={styles.trackBlock}>
+          <ThemedText type="title" style={styles.trackTitle} numberOfLines={2}>
+            {track.title}
+          </ThemedText>
+          <ThemedText type="default" style={styles.trackArtist} numberOfLines={1}>
+            {track.artist}
+          </ThemedText>
+        </View>
+
+        {showVisualizer ? <AudioVisualizer isPlaying={isPlaying} /> : null}
+
+        <View style={[styles.progressPanel, { backgroundColor: surface, borderColor }]}>
+          <View style={styles.timeRow}>
+            <ThemedText type="default" style={styles.timeText}>
+              {formatTime(position)}
+            </ThemedText>
+            <ThemedText type="default" style={styles.timeText}>
+              {formatTime(trackDuration)}
+            </ThemedText>
+          </View>
+          <View style={[styles.progressRail, { backgroundColor: borderColor }]}>
+            <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: tint }]} />
+          </View>
+        </View>
+
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.secondaryControl} onPress={() => setShuffle(!shuffle)}>
+            <Ionicons name="shuffle" size={22} color={shuffle ? tint : textColor} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.skipControl} onPress={playPrevious}>
+            <Ionicons name="play-skip-back" size={30} color={textColor} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.primaryControl, { backgroundColor: tint }]} onPress={togglePlayPause}>
+            <Ionicons name={isPlaying ? 'pause' : 'play'} size={34} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.skipControl} onPress={playNext}>
+            <Ionicons name="play-skip-forward" size={30} color={textColor} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryControl} onPress={() => setRepeat(!repeat)}>
+            <Ionicons name="repeat" size={22} color={repeat ? tint : textColor} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.toolPanel, { backgroundColor: surface, borderColor }]}>
+          <TouchableOpacity style={styles.toolButton} onPress={() => setFavorite(!favorite)}>
+            <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={22} color={favorite ? '#db2777' : textColor} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.toolButton} onPress={() => setShowLyrics(!showLyrics)}>
+            <Ionicons name={showLyrics ? 'reader' : 'reader-outline'} size={22} color={showLyrics ? tint : textColor} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.toolButton} onPress={() => setShowVisualizer(!showVisualizer)}>
+            <Ionicons name={showVisualizer ? 'pulse' : 'pulse-outline'} size={22} color={showVisualizer ? tint : textColor} />
+          </TouchableOpacity>
+          <View style={styles.volumeBlock}>
+            <Ionicons name="volume-medium" size={18} color={textColor} />
+            <View style={[styles.volumeRail, { backgroundColor: borderColor }]}>
+              <View style={[styles.volumeFill, { width: `${volume * 100}%`, backgroundColor: tint }]} />
             </View>
-            <ThemedText style={styles.timeText}>{formatTime(duration)}</ThemedText>
           </View>
+        </View>
 
-          {/* Playback Controls */}
-          <View style={styles.controlsContainer}>
-            <TouchableOpacity onPress={() => {}} style={styles.controlButton}>
-              <Ionicons name="shuffle" size={24} color={useThemeColor({}, 'text')} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity onPress={playPrevious} style={styles.controlButton}>
-              <Ionicons name="play-skip-back" size={32} color={useThemeColor({}, 'text')} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={togglePlayPause} 
-              style={[styles.playButton, { backgroundColor: useThemeColor({}, 'tint') }]}
-            >
-              <Ionicons 
-                name={isPlaying ? "pause" : "play"} 
-                size={36} 
-                color="#FFFFFF" 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity onPress={playNext} style={styles.controlButton}>
-              <Ionicons name="play-skip-forward" size={32} color={useThemeColor({}, 'text')} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={() => {}}
-              style={styles.controlButton}
-            >
-              <Ionicons 
-                name="repeat" 
-                size={24} 
-                color={useThemeColor({}, 'text')} 
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Additional Controls */}
-          <View style={styles.additionalControls}>
-            <TouchableOpacity 
-              onPress={() => setShowLyrics(!showLyrics)}
-              style={styles.additionalControlButton}
-            >
-              <Ionicons 
-                name={showLyrics ? "reader" : "reader-outline"} 
-                size={24} 
-                color={showLyrics ? useThemeColor({}, 'tint') : useThemeColor({}, 'text')} 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={() => setShowVisualizer(!showVisualizer)}
-              style={styles.additionalControlButton}
-            >
-              <Ionicons 
-                name={showVisualizer ? "pulse" : "pulse-outline"} 
-                size={24} 
-                color={showVisualizer ? useThemeColor({}, 'tint') : useThemeColor({}, 'text')} 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={() => {}}
-              style={styles.additionalControlButton}
-            >
-              <Ionicons 
-                name="share-social" 
-                size={24} 
-                color={useThemeColor({}, 'text')} 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={() => {}}
-              style={styles.additionalControlButton}
-            >
-              <Ionicons 
-                name="heart-outline" 
-                size={24} 
-                color={useThemeColor({}, 'text')} 
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Volume Control */}
-          <View style={styles.volumeContainer}>
-            <Ionicons name="volume-low" size={20} color={useThemeColor({}, 'text')} />
-            <View style={styles.volumeSlider}>
-              <View 
+        <View style={styles.speedRow}>
+          {speedOptions.map((option) => {
+            const selected = speed === option;
+            return (
+              <TouchableOpacity
+                key={option}
                 style={[
-                  styles.volumeFill,
-                  { 
-                    width: `${volume * 100}%`,
-                    backgroundColor: useThemeColor({}, 'tint')
-                  }
-                ]} 
-              />
-            </View>
-            <Ionicons name="volume-high" size={20} color={useThemeColor({}, 'text')} />
-          </View>
+                  styles.speedChip,
+                  {
+                    backgroundColor: selected ? tint : surface,
+                    borderColor: selected ? tint : borderColor,
+                  },
+                ]}
+                onPress={() => setSpeed(option)}
+              >
+                <ThemedText type="defaultSemiBold" style={{ color: selected ? '#fff' : textColor }}>
+                  {option}x
+                </ThemedText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-          {/* Playback Speed */}
-          <View style={styles.speedContainer}>
-            <TouchableOpacity 
-              onPress={() => setPlaybackSpeed(playbackSpeed === 0.5 ? 1.0 : playbackSpeed === 1.0 ? 1.25 : playbackSpeed === 1.25 ? 1.5 : 0.5)}
-              style={styles.speedButton}
-            >
-              <ThemedText style={styles.speedText}>Speed: {playbackSpeed}x</ThemedText>
-            </TouchableOpacity>
+        {showLyrics ? (
+          <View style={[styles.panel, { backgroundColor: surface, borderColor }]}>
+            <ThemedText type="defaultSemiBold" style={styles.panelTitle}>
+              Lyrics
+            </ThemedText>
+            <ThemedText type="default" style={styles.panelText}>
+              Synced local lyrics will appear here when available.
+            </ThemedText>
           </View>
-        </ScrollView>
+        ) : null}
 
-        {/* Lyrics Panel */}
-        {showLyrics && (
-          <View style={styles.lyricsContainer}>
-            <ScrollView style={styles.lyricsScroll}>
-              <ThemedText style={styles.lyricLine} type="default">These are sample lyrics</ThemedText>
-              <ThemedText style={styles.lyricLine} type="default">That would scroll in sync</ThemedText>
-              <ThemedText style={styles.lyricLine} type="default">With the music</ThemedText>
-              <ThemedText style={styles.lyricLine} type="default">As it plays</ThemedText>
-              <ThemedText style={styles.lyricLine} type="default">Creating an immersive</ThemedText>
-              <ThemedText style={styles.lyricLine} type="default">Listening experience</ThemedText>
-            </ScrollView>
+        {showQueue ? (
+          <View style={[styles.panel, { backgroundColor: surface, borderColor }]}>
+            <ThemedText type="defaultSemiBold" style={styles.panelTitle}>
+              Up Next
+            </ThemedText>
+            <ThemedText type="default" style={styles.panelText}>
+              Queue controls are ready for your local playlist flow.
+            </ThemedText>
           </View>
-        )}
-
-        {/* Queue Panel */}
-        {showQueue && (
-          <View style={styles.queueContainer}>
-            <ThemedText style={styles.queueTitle} type="defaultSemiBold">Up Next</ThemedText>
-            <ScrollView style={styles.queueList}>
-              {[1, 2, 3, 4, 5].map((item) => (
-                <TouchableOpacity key={item} style={styles.queueItem}>
-                  <ThemedText style={styles.queueItemText} type="default">Song {item}</ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </Animated.View>
+        ) : null}
+      </ScrollView>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  ambientLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '48%',
+  },
+  ambientLayerSecondary: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '34%',
+    opacity: 0.08,
+  },
   content: {
-    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 34,
   },
   header: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 22,
+  },
+  iconButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  trackInfoHeader: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 16,
-  },
-  trackTitleHeader: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  trackArtistHeader: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  mainContent: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 24,
-  },
-  albumArtContainer: {
-    alignSelf: 'center',
-    width: SCREEN_WIDTH * 0.7,
-    height: SCREEN_WIDTH * 0.7,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 32,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 20,
-  },
-  albumArt: {
-    width: '100%',
-    height: '100%',
-  },
-  albumArtPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#333',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  trackInfo: {
+  headerTitle: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 14,
+  },
+  headerEyebrow: {
+    fontSize: 14,
+  },
+  headerSubtext: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  artworkStage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 26,
+  },
+  artworkShadow: {
+    position: 'absolute',
+    width: 250,
+    height: 250,
+    borderRadius: 28,
+    transform: [{ rotate: '8deg' }],
+    opacity: 0.22,
+  },
+  artwork: {
+    width: '88%',
+    maxWidth: 330,
+    aspectRatio: 1,
+    borderRadius: 30,
+  },
+  artworkFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackBlock: {
+    alignItems: 'center',
+    marginBottom: 6,
   },
   trackTitle: {
-    fontSize: 24,
-    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 4,
+    lineHeight: 36,
   },
   trackArtist: {
-    fontSize: 18,
-    opacity: 0.8,
     textAlign: 'center',
-    marginBottom: 4,
+    opacity: 0.72,
+    marginTop: 6,
   },
-  trackAlbum: {
-    fontSize: 16,
-    opacity: 0.6,
-    textAlign: 'center',
+  progressPanel: {
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 14,
+    marginTop: 4,
   },
-  progressContainer: {
+  timeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  progressBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#ccc',
-    marginHorizontal: 8,
+  timeText: {
+    fontSize: 12,
+    opacity: 0.72,
+  },
+  progressRail: {
+    height: 9,
+    borderRadius: 999,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
+    borderRadius: 999,
   },
-  timeText: {
-    fontSize: 12,
-    minWidth: 30,
-  },
-  controlsContainer: {
+  controls: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginVertical: 24,
+  },
+  secondaryControl: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  skipControl: {
+    width: 52,
+    height: 52,
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
   },
-  controlButton: {
-    padding: 12,
-  },
-  playButton: {
-    padding: 16,
-    borderRadius: 50,
-    marginHorizontal: 20,
-  },
-  additionalControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  primaryControl: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
   },
-  additionalControlButton: {
-    padding: 12,
-  },
-  volumeContainer: {
+  toolPanel: {
+    borderWidth: 1,
+    borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    gap: 10,
+    padding: 10,
   },
-  volumeSlider: {
+  toolButton: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  volumeBlock: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#ccc',
-    marginHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  volumeRail: {
+    flex: 1,
+    height: 7,
+    borderRadius: 999,
     overflow: 'hidden',
   },
   volumeFill: {
     height: '100%',
+    borderRadius: 999,
   },
-  speedContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
+  speedRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
   },
-  speedButton: {
-    padding: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 20,
-  },
-  speedText: {
-    fontSize: 14,
-  },
-  lyricsContainer: {
+  speedChip: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  lyricsScroll: {
-    flex: 1,
-  },
-  lyricLine: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginVertical: 8,
-  },
-  queueContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  queueTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  queueList: {
-    flex: 1,
-  },
-  queueItem: {
+    borderWidth: 1,
+    borderRadius: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    alignItems: 'center',
   },
-  queueItemText: {
+  panel: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 16,
+    marginTop: 14,
+  },
+  panelTitle: {
     fontSize: 16,
+    marginBottom: 6,
+  },
+  panelText: {
+    opacity: 0.72,
+    lineHeight: 21,
   },
 });
-
-export default NowPlayingScreen;

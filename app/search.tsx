@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Image, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, FlatList, TextInput, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import { MusicTrack } from '@/types/music';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
@@ -86,6 +85,7 @@ const recentSearches = [
 ];
 
 const SearchScreen = () => {
+  const tint = useThemeColor({}, 'tint');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'songs' | 'albums' | 'artists' | 'playlists'>('all');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -183,7 +183,7 @@ const SearchScreen = () => {
             <ThemedText style={styles.resultSubtitle} type="default">{item.artist || item.album}</ThemedText>
           </View>
           <TouchableOpacity style={styles.playButton}>
-            <Ionicons name="play" size={20} color={useThemeColor({}, 'tint')} />
+            <Ionicons name="play" size={20} color={tint} />
           </TouchableOpacity>
         </TouchableOpacity>
       );
@@ -199,7 +199,7 @@ const SearchScreen = () => {
             <ThemedText style={styles.resultSubtitle} type="default">{item.artist}</ThemedText>
           </View>
           <TouchableOpacity style={styles.playButton}>
-            <Ionicons name="play" size={20} color={useThemeColor({}, 'tint')} />
+            <Ionicons name="play" size={20} color={tint} />
           </TouchableOpacity>
         </TouchableOpacity>
       );
@@ -217,7 +217,7 @@ const SearchScreen = () => {
             <ThemedText style={styles.resultSubtitle} type="default">Artist</ThemedText>
           </View>
           <TouchableOpacity style={styles.followButton}>
-            <Ionicons name="add" size={20} color={useThemeColor({}, 'tint')} />
+            <Ionicons name="add" size={20} color={tint} />
           </TouchableOpacity>
         </TouchableOpacity>
       );
@@ -233,7 +233,7 @@ const SearchScreen = () => {
             <ThemedText style={styles.resultSubtitle} type="default">{item.description}</ThemedText>
           </View>
           <TouchableOpacity style={styles.playButton}>
-            <Ionicons name="play" size={20} color={useThemeColor({}, 'tint')} />
+            <Ionicons name="play" size={20} color={tint} />
           </TouchableOpacity>
         </TouchableOpacity>
       );
@@ -268,11 +268,11 @@ const SearchScreen = () => {
         {['all', 'songs', 'albums', 'artists', 'playlists'].map((tab) => (
           <TouchableOpacity 
             key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
+            style={[styles.tab, activeTab === tab && { borderBottomColor: tint, borderBottomWidth: 2 }]}
             onPress={() => setActiveTab(tab as any)}
           >
             <ThemedText 
-              style={[styles.tabText, activeTab === tab && styles.activeTabText]} 
+              style={[styles.tabText, activeTab === tab && { color: tint }]} 
               type={activeTab === tab ? "defaultSemiBold" : "default"}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -356,13 +356,11 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: useThemeColor({}, 'tint'),
   },
   tabText: {
     fontSize: 16,
   },
   activeTabText: {
-    color: useThemeColor({}, 'tint'),
   },
   content: {
     flex: 1,

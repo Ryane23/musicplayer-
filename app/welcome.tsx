@@ -1,17 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
-const WelcomeScreen = ({ navigation }: any) => {
+const WelcomeScreen = () => {
+  const router = useRouter();
+  const tint = useThemeColor({}, 'tint');
+
   return (
     <SafeAreaView style={styles.container}>
       <ThemedView style={styles.content}>
         <View style={styles.hero}>
-          <Ionicons name="musical-notes" size={100} color={useThemeColor({}, 'tint')} />
+          <Ionicons name="musical-notes" size={100} color={tint} />
           <ThemedText style={styles.title} type="defaultSemiBold">Welcome to MelodyLocal</ThemedText>
           <ThemedText style={styles.subtitle} type="default">
             Your premium music experience starts here
@@ -20,34 +24,34 @@ const WelcomeScreen = ({ navigation }: any) => {
         
         <View style={styles.features}>
           <View style={styles.featureItem}>
-            <Ionicons name="musical-note" size={24} color={useThemeColor({}, 'tint')} />
+            <Ionicons name="musical-note" size={24} color={tint} />
             <ThemedText style={styles.featureText} type="default">High quality audio</ThemedText>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="color-palette" size={24} color={useThemeColor({}, 'tint')} />
+            <Ionicons name="color-palette" size={24} color={tint} />
             <ThemedText style={styles.featureText} type="default">Beautiful themes</ThemedText>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="pulse" size={24} color={useThemeColor({}, 'tint')} />
+            <Ionicons name="pulse" size={24} color={tint} />
             <ThemedText style={styles.featureText} type="default">Immersive visualizer</ThemedText>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="heart" size={24} color={useThemeColor({}, 'tint')} />
+            <Ionicons name="heart" size={24} color={tint} />
             <ThemedText style={styles.featureText} type="default">Smart recommendations</ThemedText>
           </View>
         </View>
         
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
-            style={[styles.primaryButton, { backgroundColor: useThemeColor({}, 'tint') }]}
-            onPress={() => navigation.navigate('Home')}
+            style={[styles.primaryButton, { backgroundColor: tint }]}
+            onPress={() => router.replace('/(tabs)')}
           >
             <ThemedText style={styles.primaryButtonText} type="default">Get Started</ThemedText>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.secondaryButton}
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => router.push('/settings')}
           >
             <ThemedText style={styles.secondaryButtonText} type="default">Sign In</ThemedText>
           </TouchableOpacity>

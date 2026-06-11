@@ -36,7 +36,7 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
 
   // Initialize the music player service
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     // Update current track when it changes
     const updateCurrentTrack = () => {

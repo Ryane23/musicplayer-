@@ -5,18 +5,33 @@ import { useThemeColor } from '../../hooks/use-theme-color';
 
 export default function TabLayout() {
   const tint = useThemeColor({}, 'tint');
+  const background = useThemeColor({}, 'background');
   
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: tint,
-        tabBarInactiveTintColor: '#888',
+        tabBarInactiveTintColor: '#8A8F98',
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '700',
+        },
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#eee',
-          paddingBottom: 10,
-          paddingTop: 5,
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: 14,
+          height: 72,
+          borderRadius: 28,
+          backgroundColor: background,
+          borderTopWidth: 0,
+          paddingBottom: 12,
+          paddingTop: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 12 },
+          shadowOpacity: 0.16,
+          shadowRadius: 24,
+          elevation: 12,
         },
         headerShown: false,
       }}
@@ -24,39 +39,33 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Music',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'musical-notes' : 'musical-notes-outline'} size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="library"
+        name="playlists"
         options={{
-          title: 'Library',
+          title: 'Playlists',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'library' : 'library-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'albums' : 'albums-outline'} size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="settings"
         options={{
-          title: 'Search',
+          title: 'Settings',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'search' : 'search-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={24} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          title: 'Favorites',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="library" options={{ href: null }} />
+      <Tabs.Screen name="music" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }

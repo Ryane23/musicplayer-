@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, FlatList, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import { MusicTrack } from '@/types/music';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 
-// Mock data for demonstration
 const mockTracks: MusicTrack[] = [
   {
     id: '1',
@@ -17,7 +15,7 @@ const mockTracks: MusicTrack[] = [
     album: 'Electric Dreams',
     duration: 225000,
     uri: 'https://example.com/song1.mp3',
-    coverUri: 'https://placehold.co/300x300/8A2BE2/FFFFFF?text=DH'
+    coverUri: 'https://placehold.co/300x300/8A2BE2/FFFFFF?text=DH',
   },
   {
     id: '2',
@@ -26,7 +24,7 @@ const mockTracks: MusicTrack[] = [
     album: 'Classical Nights',
     duration: 312000,
     uri: 'https://example.com/song2.mp3',
-    coverUri: 'https://placehold.co/300x300/4A90E2/FFFFFF?text=MC'
+    coverUri: 'https://placehold.co/300x300/4A90E2/FFFFFF?text=MC',
   },
   {
     id: '3',
@@ -35,7 +33,7 @@ const mockTracks: MusicTrack[] = [
     album: 'Science of Sound',
     duration: 198000,
     uri: 'https://example.com/song3.mp3',
-    coverUri: 'https://placehold.co/300x300/50E3C2/FFFFFF?text=FD'
+    coverUri: 'https://placehold.co/300x300/50E3C2/FFFFFF?text=FD',
   },
   {
     id: '4',
@@ -44,7 +42,7 @@ const mockTracks: MusicTrack[] = [
     album: 'Retro Future',
     duration: 267000,
     uri: 'https://example.com/song4.mp3',
-    coverUri: 'https://placehold.co/300x300/D0011B/FFFFFF?text=ND'
+    coverUri: 'https://placehold.co/300x300/D0011B/FFFFFF?text=ND',
   },
   {
     id: '5',
@@ -53,7 +51,7 @@ const mockTracks: MusicTrack[] = [
     album: 'Jazz Fusion',
     duration: 301000,
     uri: 'https://example.com/song5.mp3',
-    coverUri: 'https://placehold.co/300x300/F5A623/FFFFFF?text=OS'
+    coverUri: 'https://placehold.co/300x300/F5A623/FFFFFF?text=OS',
   },
   {
     id: '6',
@@ -62,7 +60,7 @@ const mockTracks: MusicTrack[] = [
     album: 'Electronic Waves',
     duration: 245000,
     uri: 'https://example.com/song6.mp3',
-    coverUri: 'https://placehold.co/300x300/7B68EE/FFFFFF?text=V'
+    coverUri: 'https://placehold.co/300x300/7B68EE/FFFFFF?text=V',
   },
 ];
 
@@ -89,11 +87,10 @@ const mockPlaylists = [
   { id: '4', title: 'Focus Flow', description: 'Concentration enhancing music', coverUri: 'https://placehold.co/300x300/D0011B/FFFFFF?text=FF', songCount: 18 },
 ];
 
-const MusicLibrary = () => {
+export default function LibraryScreen() {
+  const tint = useThemeColor({}, 'tint');
   const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists'>('songs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [sortOption, setSortOption] = useState('alphabetical');
-  
   const { loadTracks, playTrack } = useMusicPlayer();
 
   const handlePlayTrack = async (track: MusicTrack) => {
@@ -107,10 +104,7 @@ const MusicLibrary = () => {
   };
 
   const renderTrackItem = ({ item }: { item: MusicTrack }) => (
-    <TouchableOpacity 
-      style={styles.trackItem}
-      onPress={() => handlePlayTrack(item)}
-    >
+    <TouchableOpacity style={styles.trackItem} onPress={() => handlePlayTrack(item)}>
       {item.coverUri ? (
         <Image source={{ uri: item.coverUri }} style={styles.trackCoverImage} />
       ) : (
@@ -124,16 +118,13 @@ const MusicLibrary = () => {
         {Math.floor(item.duration / 60000)}:{Math.floor((item.duration % 60000) / 1000).toString().padStart(2, '0')}
       </ThemedText>
       <TouchableOpacity style={styles.playButton}>
-        <Ionicons name="play" size={20} color={useThemeColor({}, 'tint')} />
+        <Ionicons name="play" size={20} color={tint} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
 
   const renderAlbumItem = ({ item }: { item: any }) => (
-    <TouchableOpacity 
-      style={styles.albumCard}
-      onPress={() => handlePlayPlaylist(mockTracks)}
-    >
+    <TouchableOpacity style={styles.albumCard} onPress={() => handlePlayPlaylist(mockTracks.filter((track) => track.album === item.title))}>
       <Image source={{ uri: item.coverUri }} style={styles.albumCoverImage} />
       <ThemedText style={styles.albumTitle} type="defaultSemiBold">{item.title}</ThemedText>
       <ThemedText style={styles.albumArtist} type="default">{item.artist}</ThemedText>
@@ -151,20 +142,18 @@ const MusicLibrary = () => {
         <ThemedText style={styles.artistSongs} type="default">{item.songCount} songs</ThemedText>
       </View>
       <TouchableOpacity style={styles.artistFollowButton}>
-        <Ionicons name="add" size={20} color={useThemeColor({}, 'tint')} />
+        <Ionicons name="add" size={20} color={tint} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
 
   const renderPlaylistItem = ({ item }: { item: any }) => (
-    <TouchableOpacity 
-      style={styles.playlistCard}
-      onPress={() => handlePlayPlaylist(mockTracks)}
-    >
+    <TouchableOpacity style={styles.playlistCard} onPress={() => handlePlayPlaylist(mockTracks)}>
       <Image source={{ uri: item.coverUri }} style={styles.playlistCoverImage} />
       <View style={styles.playlistInfo}>
         <ThemedText style={styles.playlistTitle} type="defaultSemiBold">{item.title}</ThemedText>
         <ThemedText style={styles.playlistDescription} type="default">{item.description}</ThemedText>
+        <ThemedText style={styles.playlistSongCount} type="subtitle">{item.songCount} songs</ThemedText>
       </View>
     </TouchableOpacity>
   );
@@ -172,47 +161,13 @@ const MusicLibrary = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'songs':
-        return (
-          <FlatList
-            data={mockTracks}
-            renderItem={renderTrackItem}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          />
-        );
+        return <FlatList data={mockTracks} renderItem={renderTrackItem} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} ItemSeparatorComponent={() => <View style={{ height: 8 }} />} />;
       case 'albums':
-        return (
-          <FlatList
-            data={mockAlbums}
-            renderItem={viewMode === 'grid' ? renderAlbumItem : renderAlbumItem}
-            keyExtractor={(item) => item.id}
-            numColumns={viewMode === 'grid' ? 2 : 1}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={viewMode === 'grid' ? styles.gridContainer : {}}
-            ItemSeparatorComponent={viewMode === 'list' ? () => <View style={{ height: 8 }} /> : undefined}
-          />
-        );
+        return <FlatList data={mockAlbums} renderItem={renderAlbumItem} keyExtractor={(item) => item.id} numColumns={viewMode === 'grid' ? 2 : 1} showsVerticalScrollIndicator={false} contentContainerStyle={viewMode === 'grid' ? styles.gridContainer : undefined} ItemSeparatorComponent={viewMode === 'list' ? () => <View style={{ height: 8 }} /> : undefined} />;
       case 'artists':
-        return (
-          <FlatList
-            data={mockArtists}
-            renderItem={renderArtistItem}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          />
-        );
+        return <FlatList data={mockArtists} renderItem={renderArtistItem} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} ItemSeparatorComponent={() => <View style={{ height: 8 }} />} />;
       case 'playlists':
-        return (
-          <FlatList
-            data={mockPlaylists}
-            renderItem={renderPlaylistItem}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          />
-        );
+        return <FlatList data={mockPlaylists} renderItem={renderPlaylistItem} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} ItemSeparatorComponent={() => <View style={{ height: 8 }} />} />;
       default:
         return null;
     }
@@ -221,43 +176,83 @@ const MusicLibrary = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText style={styles.headerTitle} type="defaultSemiBold">Your Library</ThemedText>
-        
+        <ThemedText style={styles.headerTitle} type="title">Your Library</ThemedText>
         <View style={styles.controlsRow}>
           <TouchableOpacity style={styles.viewModeButton} onPress={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}>
-            <Ionicons 
-              name={viewMode === 'list' ? "grid" : "list"} 
-              size={24} 
-              color={useThemeColor({}, 'text')} 
-            />
+            <Ionicons name={viewMode === 'list' ? 'grid' : 'list'} size={24} color={tint} />
           </TouchableOpacity>
-          
           <TouchableOpacity style={styles.sortButton} onPress={() => {}}>
-            <Ionicons name="funnel" size={24} color={useThemeColor({}, 'text')} />
+            <Ionicons name="funnel" size={24} color={tint} />
           </TouchableOpacity>
         </View>
       </View>
-      
+
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'songs' && styles.activeTab]}
-          onPress={() => setActiveTab('songs')}
-        >
-          <ThemedText 
-            style={[styles.tabText, activeTab === 'songs' && styles.activeTabText]} 
-            type={activeTab === 'songs' ? "defaultSemiBold" : "default"}
+        {(['songs', 'albums', 'artists', 'playlists'] as const).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && { borderBottomColor: tint, borderBottomWidth: 2 }]}
+            onPress={() => setActiveTab(tab)}
           >
-            Songs
-          </ThemedText>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'albums' && styles.activeTab]}
-          onPress={() => setActiveTab('albums')}
-        >
-          <ThemedText 
-            style={[styles.tabText, activeTab === 'albums' && styles.activeTabText]} 
-            type={activeTab === 'albums' ? "defaultSemiBold" : "default"}
-          >
-            Albums
-          </ThemedText>
+            <ThemedText style={[styles.tabText, activeTab === tab && { color: tint }]} type={activeTab === tab ? 'defaultSemiBold' : 'default'}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </ThemedText>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.content}>{renderContent()}</View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  headerTitle: { fontSize: 24, fontWeight: '700' },
+  controlsRow: { flexDirection: 'row', gap: 16 },
+  viewModeButton: { padding: 8 },
+  sortButton: { padding: 8 },
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  tab: { paddingVertical: 12, paddingHorizontal: 8, marginRight: 16 },
+  tabText: { fontSize: 16 },
+  content: { flex: 1, paddingHorizontal: 16 },
+  gridContainer: { paddingBottom: 16 },
+  trackItem: { flexDirection: 'row', alignItems: 'center', padding: 8, borderRadius: 8 },
+  trackCoverImage: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
+  trackPlaceholder: { width: 50, height: 50, borderRadius: 8, backgroundColor: '#ccc', marginRight: 12 },
+  trackInfo: { flex: 1 },
+  trackTitle: { fontSize: 16, fontWeight: '600' },
+  trackArtist: { fontSize: 14, opacity: 0.7 },
+  trackDuration: { fontSize: 14, opacity: 0.7, marginHorizontal: 8 },
+  playButton: { padding: 8 },
+  albumCard: { flex: 1, margin: 8 },
+  albumCoverImage: { width: '100%', aspectRatio: 1, borderRadius: 8, marginBottom: 8 },
+  albumTitle: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  albumArtist: { fontSize: 12, opacity: 0.7, marginBottom: 2 },
+  albumYear: { fontSize: 12, opacity: 0.5 },
+  artistItem: { flexDirection: 'row', alignItems: 'center', padding: 8 },
+  artistAvatar: { width: 50, height: 50, borderRadius: 25, overflow: 'hidden', marginRight: 12 },
+  artistAvatarImage: { width: '100%', height: '100%' },
+  artistInfo: { flex: 1 },
+  artistName: { fontSize: 16, fontWeight: '600' },
+  artistSongs: { fontSize: 12, opacity: 0.7 },
+  artistFollowButton: { padding: 8 },
+  playlistCard: { flexDirection: 'row', alignItems: 'center', padding: 8, marginBottom: 8 },
+  playlistCoverImage: { width: 60, height: 60, borderRadius: 8, marginRight: 12 },
+  playlistInfo: { flex: 1 },
+  playlistTitle: { fontSize: 16, fontWeight: '600' },
+  playlistDescription: { fontSize: 14, opacity: 0.7, marginBottom: 2 },
+  playlistSongCount: { fontSize: 12, opacity: 0.5 },
+});
