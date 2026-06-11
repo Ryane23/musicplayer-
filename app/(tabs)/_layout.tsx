@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColor } from '../../hooks/useThemeColor';
+import { useThemeColor } from '../../hooks/use-theme-color';
 
 export default function TabLayout() {
   const tint = useThemeColor({}, 'tint');
@@ -54,15 +54,6 @@ export default function TabLayout() {
           title: 'Favorites',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={24} color={color} />
           ),
         }}
       />

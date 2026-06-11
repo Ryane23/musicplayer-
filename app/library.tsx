@@ -1,100 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColor } from '../hooks/use-theme-color';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import { MusicTrack } from '../types/music';
 import { useMusicPlayer } from '../contexts/MusicPlayerContext';
+import { MusicLibraryService } from '../services/MusicLibraryService';
 
-// Mock data for demonstration
-const mockTracks: MusicTrack[] = [
-  {
-    id: '1',
-    title: 'Digital Horizon',
-    artist: 'Vertex Collective',
-    album: 'Electric Dreams',
-    duration: 225000,
-    uri: 'https://example.com/song1.mp3',
-    coverUri: 'https://placehold.co/300x300/8A2BE2/FFFFFF?text=DH'
-  },
-  {
-    id: '2',
-    title: 'Midnight Cello',
-    artist: 'Elena Rossi',
-    album: 'Classical Nights',
-    duration: 312000,
-    uri: 'https://example.com/song2.mp3',
-    coverUri: 'https://placehold.co/300x300/4A90E2/FFFFFF?text=MC'
-  },
-  {
-    id: '3',
-    title: 'Fluid Dynamics',
-    artist: 'The Wave',
-    album: 'Science of Sound',
-    duration: 198000,
-    uri: 'https://example.com/song3.mp3',
-    coverUri: 'https://placehold.co/300x300/50E3C2/FFFFFF?text=FD'
-  },
-  {
-    id: '4',
-    title: 'Neon Drifters',
-    artist: 'Synthwave Collective',
-    album: 'Retro Future',
-    duration: 267000,
-    uri: 'https://example.com/song4.mp3',
-    coverUri: 'https://placehold.co/300x300/D0011B/FFFFFF?text=ND'
-  },
-  {
-    id: '5',
-    title: 'Organic Soul',
-    artist: 'The Quintet',
-    album: 'Jazz Fusion',
-    duration: 301000,
-    uri: 'https://example.com/song5.mp3',
-    coverUri: 'https://placehold.co/300x300/F5A623/FFFFFF?text=OS'
-  },
-  {
-    id: '6',
-    title: 'Vibrations',
-    artist: 'Static Echoes',
-    album: 'Electronic Waves',
-    duration: 245000,
-    uri: 'https://example.com/song6.mp3',
-    coverUri: 'https://placehold.co/300x300/7B68EE/FFFFFF?text=V'
-  },
-];
-
-const mockAlbums = [
-  { id: '1', title: 'Electric Dreams', artist: 'Various Artists', coverUri: 'https://placehold.co/300x300/8A2BE2/FFFFFF?text=ED', year: 2023 },
-  { id: '2', title: 'Classical Nights', artist: 'Elena Rossi', coverUri: 'https://placehold.co/300x300/4A90E2/FFFFFF?text=CN', year: 2022 },
-  { id: '3', title: 'Science of Sound', artist: 'The Wave', coverUri: 'https://placehold.co/300x300/50E3C2/FFFFFF?text=SS', year: 2023 },
-  { id: '4', title: 'Retro Future', artist: 'Synthwave Collective', coverUri: 'https://placehold.co/300x300/D0011B/FFFFFF?text=RF', year: 2021 },
-  { id: '5', title: 'Jazz Fusion', artist: 'The Quintet', coverUri: 'https://placehold.co/300x300/F5A623/FFFFFF?text=JF', year: 2020 },
-];
-
-const mockArtists = [
-  { id: '1', name: 'Vertex Collective', coverUri: 'https://placehold.co/300x300/8A2BE2/FFFFFF?text=VC', songCount: 12 },
-  { id: '2', name: 'Elena Rossi', coverUri: 'https://placehold.co/300x300/4A90E2/FFFFFF?text=ER', songCount: 8 },
-  { id: '3', name: 'The Wave', coverUri: 'https://placehold.co/300x300/50E3C2/FFFFFF?text=TW', songCount: 15 },
-  { id: '4', name: 'Synthwave Collective', coverUri: 'https://placehold.co/300x300/D0011B/FFFFFF?text=SC', songCount: 10 },
-  { id: '5', name: 'The Quintet', coverUri: 'https://placehold.co/300x300/F5A623/FFFFFF?text=TQ', songCount: 7 },
-];
-
-const mockPlaylists = [
-  { id: '1', title: 'Daily Mix 1', description: 'Based on your listening habits', coverUri: 'https://placehold.co/300x300/8A2BE2/FFFFFF?text=DM1', songCount: 25 },
-  { id: '2', title: 'Chill Vibes', description: 'Relaxing tunes for your day', coverUri: 'https://placehold.co/300x300/4A90E2/FFFFFF?text=CV', songCount: 30 },
-  { id: '3', title: 'Workout Hits', description: 'High energy tracks for your workout', coverUri: 'https://placehold.co/300x300/50E3C2/FFFFFF?text=WH', songCount: 20 },
-  { id: '4', title: 'Focus Flow', description: 'Concentration enhancing music', coverUri: 'https://placehold.co/300x300/D0011B/FFFFFF?text=FF', songCount: 18 },
-];
-
+// State for storing the actual music library data
 const MusicLibrary = () => {
   const [activeTab, setActiveTab] = useState<'songs' | 'albums' | 'artists' | 'playlists'>('songs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [sortOption, setSortOption] = useState('alphabetical');
-  
+  const [tracks, setTracks] = useState<MusicTrack[]>([]);
+  const [albums, setAlbums] = useState<any[]>([]);
+  const [artists, setArtists] = useState<any[]>([]);
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const { loadTracks, playTrack } = useMusicPlayer();
+
+  // Load local music when component mounts
+  useEffect(() => {
+    loadLocalMusic();
+  }, []);
+
+  const loadLocalMusic = async () => {
+    setIsLoading(true);
+    try {
+      const localTracks = await MusicLibraryService.scanLocalMusic();
+      setTracks(localTracks);
+      
+      // Generate albums from tracks
+      const uniqueAlbums = Array.from(
+        new Map(localTracks.map(track => [track.album + track.artist, {
+          id: track.album + track.artist,
+          title: track.album,
+          artist: track.artist,
+          coverUri: track.coverUri,
+          year: new Date().getFullYear() // Placeholder
+        }])).values()
+      );
+      setAlbums(uniqueAlbums);
+      
+      // Generate artists from tracks
+      const uniqueArtists = Array.from(
+        new Map(localTracks.map(track => [track.artist, {
+          id: track.artist,
+          name: track.artist,
+          coverUri: track.coverUri,
+          songCount: localTracks.filter(t => t.artist === track.artist).length
+        }])).values()
+      );
+      setArtists(uniqueArtists);
+      
+      // Create default playlists
+      setPlaylists([
+        { id: '1', title: 'All Songs', description: 'All your local music', coverUri: undefined, songCount: localTracks.length },
+        { id: '2', title: 'Recently Added', description: 'Recently added tracks', coverUri: undefined, songCount: Math.min(20, localTracks.length) },
+      ]);
+    } catch (error) {
+      console.error('Error loading local music:', error);
+      // Fallback to empty arrays
+      setTracks([]);
+      setAlbums([]);
+      setArtists([]);
+      setPlaylists([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handlePlayTrack = async (track: MusicTrack) => {
     await loadTracks([track]);
@@ -132,23 +109,33 @@ const MusicLibrary = () => {
   const renderAlbumItem = ({ item }: { item: any }) => (
     <TouchableOpacity 
       style={styles.albumCard}
-      onPress={() => handlePlayPlaylist(mockTracks)}
+      onPress={() => handlePlayPlaylist(tracks.filter(track => track.album === item.title))}
     >
-      <Image source={{ uri: item.coverUri }} style={styles.albumCoverImage} />
+      {item.coverUri ? (
+        <Image source={{ uri: item.coverUri }} style={styles.albumCoverImage} />
+      ) : (
+        <View style={styles.albumCoverPlaceholder} />
+      )}
       <ThemedText style={styles.albumTitle} type="defaultSemiBold">{item.title}</ThemedText>
       <ThemedText style={styles.albumArtist} type="default">{item.artist}</ThemedText>
-      <ThemedText style={styles.albumYear} type="subtitle">{item.year}</ThemedText>
+      <ThemedText style={styles.albumYear} type="default">{item.year}</ThemedText>
     </TouchableOpacity>
   );
 
   const renderArtistItem = ({ item }: { item: any }) => (
     <TouchableOpacity style={styles.artistItem}>
-      <View style={styles.artistAvatar}>
-        <Image source={{ uri: item.coverUri }} style={styles.artistAvatarImage} />
-      </View>
+      {item.coverUri ? (
+        <View style={styles.artistAvatar}>
+          <Image source={{ uri: item.coverUri }} style={styles.artistAvatarImage} />
+        </View>
+      ) : (
+        <View style={[styles.artistAvatar, styles.artistPlaceholder]}>
+          <Ionicons name="person" size={24} color="#888" />
+        </View>
+      )}
       <View style={styles.artistInfo}>
         <ThemedText style={styles.artistName} type="defaultSemiBold">{item.name}</ThemedText>
-        <ThemedText style={styles.artistSongs} type="subtitle">{item.songCount} songs</ThemedText>
+        <ThemedText style={styles.artistSongs} type="default">{item.songCount} songs</ThemedText>
       </View>
       <TouchableOpacity style={styles.artistFollowButton}>
         <Ionicons name="add" size={20} color={useThemeColor({}, 'tint')} />
@@ -159,9 +146,21 @@ const MusicLibrary = () => {
   const renderPlaylistItem = ({ item }: { item: any }) => (
     <TouchableOpacity 
       style={styles.playlistCard}
-      onPress={() => handlePlayPlaylist(mockTracks)}
+      onPress={() => {
+        if (item.title === 'All Songs') {
+          handlePlayPlaylist(tracks);
+        } else if (item.title === 'Recently Added') {
+          handlePlayPlaylist(tracks.slice(0, 20)); // First 20 tracks as recently added
+        }
+      }}
     >
-      <Image source={{ uri: item.coverUri }} style={styles.playlistCoverImage} />
+      {item.coverUri ? (
+        <Image source={{ uri: item.coverUri }} style={styles.playlistCoverImage} />
+      ) : (
+        <View style={styles.playlistCoverPlaceholder}>
+          <Ionicons name="musical-notes" size={24} color="#888" />
+        </View>
+      )}
       <View style={styles.playlistInfo}>
         <ThemedText style={styles.playlistTitle} type="defaultSemiBold">{item.title}</ThemedText>
         <ThemedText style={styles.playlistDescription} type="default">{item.description}</ThemedText>
@@ -171,11 +170,29 @@ const MusicLibrary = () => {
   );
 
   const renderContent = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ThemedText type="default">Scanning your music library...</ThemedText>
+        </View>
+      );
+    }
+
+    if (activeTab === 'songs' && tracks.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="musical-notes-outline" size={48} color="#888" style={styles.emptyIcon} />
+          <ThemedText type="default" style={styles.emptyText}>No music found on your device</ThemedText>
+          <ThemedText type="default" style={styles.emptySubtext}>Add music files to your device to see them here</ThemedText>
+        </View>
+      );
+    }
+
     switch (activeTab) {
       case 'songs':
         return (
           <FlatList
-            data={mockTracks}
+            data={tracks}
             renderItem={renderTrackItem}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
@@ -185,7 +202,7 @@ const MusicLibrary = () => {
       case 'albums':
         return (
           <FlatList
-            data={mockAlbums}
+            data={albums}
             renderItem={viewMode === 'grid' ? renderAlbumItem : renderAlbumItem}
             keyExtractor={(item) => item.id}
             numColumns={viewMode === 'grid' ? 2 : 1}
@@ -197,7 +214,7 @@ const MusicLibrary = () => {
       case 'artists':
         return (
           <FlatList
-            data={mockArtists}
+            data={artists}
             renderItem={renderArtistItem}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
@@ -207,7 +224,7 @@ const MusicLibrary = () => {
       case 'playlists':
         return (
           <FlatList
-            data={mockPlaylists}
+            data={playlists}
             renderItem={renderPlaylistItem}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
@@ -248,7 +265,7 @@ const MusicLibrary = () => {
             style={[styles.tabText, activeTab === 'songs' && styles.activeTabText]} 
             type={activeTab === 'songs' ? "defaultSemiBold" : "default"}
           >
-            Songs
+            Songs ({tracks.length})
           </ThemedText>
         </TouchableOpacity>
         
@@ -260,7 +277,7 @@ const MusicLibrary = () => {
             style={[styles.tabText, activeTab === 'albums' && styles.activeTabText]} 
             type={activeTab === 'albums' ? "defaultSemiBold" : "default"}
           >
-            Albums
+            Albums ({albums.length})
           </ThemedText>
         </TouchableOpacity>
         
@@ -272,7 +289,7 @@ const MusicLibrary = () => {
             style={[styles.tabText, activeTab === 'artists' && styles.activeTabText]} 
             type={activeTab === 'artists' ? "defaultSemiBold" : "default"}
           >
-            Artists
+            Artists ({artists.length})
           </ThemedText>
         </TouchableOpacity>
         
@@ -284,7 +301,7 @@ const MusicLibrary = () => {
             style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]} 
             type={activeTab === 'playlists' ? "defaultSemiBold" : "default"}
           >
-            Playlists
+            Playlists ({playlists.length})
           </ThemedText>
         </TouchableOpacity>
       </View>
@@ -397,6 +414,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
   },
+  albumCoverPlaceholder: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    marginBottom: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   albumTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -422,6 +448,11 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     overflow: 'hidden',
     marginRight: 12,
+  },
+  artistPlaceholder: {
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   artistAvatarImage: {
     width: '100%',
@@ -453,6 +484,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 12,
   },
+  playlistCoverPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   playlistInfo: {
     flex: 1,
   },
@@ -468,6 +508,31 @@ const styles = StyleSheet.create({
   playlistSongCount: {
     fontSize: 12,
     opacity: 0.5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.7,
   },
 });
 
