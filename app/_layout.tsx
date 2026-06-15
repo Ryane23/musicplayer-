@@ -15,6 +15,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings" />
           <Stack.Screen name="splash" />
           <Stack.Screen name="welcome" />
+          <Stack.Screen name="library" /> {/* Added library route to stack */}
         </Stack>
         <MiniPlayer />
       </>

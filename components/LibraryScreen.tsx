@@ -14,7 +14,7 @@ const mockTracks: MusicTrack[] = [
     artist: 'Vertex Collective',
     album: 'Electric Dreams',
     duration: 225000,
-    uri: 'https://example.com/song1.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/300x300/8A2BE2/FFFFFF?text=DH',
   },
   {
@@ -23,7 +23,7 @@ const mockTracks: MusicTrack[] = [
     artist: 'Elena Rossi',
     album: 'Classical Nights',
     duration: 312000,
-    uri: 'https://example.com/song2.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/300x300/4A90E2/FFFFFF?text=MC',
   },
   {
@@ -32,7 +32,7 @@ const mockTracks: MusicTrack[] = [
     artist: 'The Wave',
     album: 'Science of Sound',
     duration: 198000,
-    uri: 'https://example.com/song3.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/300x300/50E3C2/FFFFFF?text=FD',
   },
   {
@@ -41,7 +41,7 @@ const mockTracks: MusicTrack[] = [
     artist: 'Synthwave Collective',
     album: 'Retro Future',
     duration: 267000,
-    uri: 'https://example.com/song4.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/300x300/D0011B/FFFFFF?text=ND',
   },
   {
@@ -50,7 +50,7 @@ const mockTracks: MusicTrack[] = [
     artist: 'The Quintet',
     album: 'Jazz Fusion',
     duration: 301000,
-    uri: 'https://example.com/song5.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/300x300/F5A623/FFFFFF?text=OS',
   },
   {
@@ -59,7 +59,7 @@ const mockTracks: MusicTrack[] = [
     artist: 'Static Echoes',
     album: 'Electronic Waves',
     duration: 245000,
-    uri: 'https://example.com/song6.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/300x300/7B68EE/FFFFFF?text=V',
   },
 ];

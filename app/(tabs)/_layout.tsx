@@ -27,10 +27,7 @@ export default function TabLayout() {
           borderTopWidth: 0,
           paddingBottom: 12,
           paddingTop: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: 0.16,
-          shadowRadius: 24,
+          boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.16)', // Fixed deprecated shadow properties
           elevation: 12,
         },
         headerShown: false,
@@ -39,9 +36,27 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          title: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="music"
+        options={{
           title: 'Music',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'musical-notes' : 'musical-notes-outline'} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: 'Explore',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={24} color={color} />
           ),
         }}
       />
@@ -63,9 +78,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="library" options={{ href: null }} />
-      <Tabs.Screen name="music" options={{ href: null }} />
-      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }

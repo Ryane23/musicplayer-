@@ -2,6 +2,14 @@ import { Audio } from 'expo-av';
 import { MusicTrack } from '../types/music';
 
 class MusicPlayerService {
+  // Best-effort: helps keep state correct even when playback status callbacks lag behind UI actions.
+  private setPlaybackIsPlayingFromSound = (status: any) => {
+    if (status?.isLoaded) {
+      // expo-av uses `status.isPlaying` to represent play state
+      this.isPlaying = !!status.isPlaying;
+    }
+  };
+
   private soundObject: Audio.Sound | null = null;
   private tracks: MusicTrack[] = [];
   private currentTrackIndex: number = -1;
@@ -29,6 +37,10 @@ class MusicPlayerService {
       const track = this.tracks[index];
 
       try {
+        if (!track.uri) {
+          throw new Error('Missing track.uri');
+        }
+
         const { sound } = await Audio.Sound.createAsync(
           { uri: track.uri },
           { shouldPlay: true },
@@ -37,7 +49,20 @@ class MusicPlayerService {
         this.soundObject = sound;
         this.isPlaying = true;
       } catch (error) {
-        console.error('Error creating sound object:', error);
+        console.error('Error creating sound object (track uri may be invalid):', {
+          error,
+          trackUri: track.uri,
+          trackId: track.id,
+          trackTitle: track.title,
+        });
+        // Ensure we don’t leave the service in a half-initialized state
+        if (this.soundObject) {
+          try {
+            await this.soundObject.unloadAsync();
+          } catch {
+            // ignore
+          }
+        }
         this.soundObject = null;
         this.isPlaying = false;
       }
@@ -137,41 +162,6 @@ class MusicPlayerService {
     }
   }
 
-  private handlePlaybackStatusUpdate = async (status: any) => {
-    if (status.isLoaded && status.didJustFinish) {
-      // Automatically play next track when current finishes
-      await this.playNext();
-    }
-  };
-
-  async getPlaybackPosition(): Promise<number> {
-    if (this.soundObject) {
-      try {
-        const status = await this.soundObject.getStatusAsync();
-        if (status.isLoaded) {
-          return status.positionMillis || 0;
-        }
-      } catch (error) {
-        console.error('Error getting playback position:', error);
-      }
-    }
-    return 0;
-  }
-
-  async getDuration(): Promise<number> {
-    if (this.soundObject) {
-      try {
-        const status = await this.soundObject.getStatusAsync();
-        if (status.isLoaded) {
-          return status.durationMillis || 0;
-        }
-      } catch (error) {
-        console.error('Error getting duration:', error);
-      }
-    }
-    return 0;
-  }
-
   subscribeToPlaybackUpdates(listener: (position: number, duration: number) => void) {
     if (this.soundObject) {
       this.soundObject.setOnPlaybackStatusUpdate((status) => {
@@ -179,6 +169,18 @@ class MusicPlayerService {
           listener(status.positionMillis || 0, status.durationMillis || 0);
         }
       });
+    }
+  }
+
+  // Clean up resources
+  async cleanup() {
+    if (this.soundObject) {
+      try {
+        await this.soundObject.unloadAsync();
+      } catch (error) {
+        console.warn('Error during cleanup:', error);
+      }
+      this.soundObject = null;
     }
   }
 }

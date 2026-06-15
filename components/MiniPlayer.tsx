@@ -124,13 +124,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
+    boxShadow: '0px -4px 18px rgba(0, 0, 0, 0.16)', // Fixed deprecated shadow properties
   },
   progressContainer: {
     height: 2,

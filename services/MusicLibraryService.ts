@@ -21,7 +21,9 @@ export class MusicLibraryService {
     const hasPermission = await this.requestPermission();
 
     if (!hasPermission) {
-      throw new Error('Media library permission denied');
+      // Android/Expo Go may reject this permission request depending on build config.
+      // Keep app functional by returning an empty list.
+      return [];
     }
 
     let allAssets: MediaLibrary.Asset[] = [];

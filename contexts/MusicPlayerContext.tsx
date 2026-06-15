@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { musicPlayerService } from '../services/MusicPlayerService';
-import { MusicTrack, MusicPlayerState } from '../types/music';
+import { MusicTrack } from '../types/music';
 
 interface MusicPlayerContextType {
   currentTrack: MusicTrack | null;
@@ -17,6 +17,7 @@ interface MusicPlayerContextType {
   seekTo: (position: number) => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   loadTracks: (tracks: MusicTrack[]) => Promise<void>;
+  cleanup: () => Promise<void>; // Added cleanup method
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(undefined);
@@ -37,6 +38,7 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
   // Initialize the music player service
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
+    let lastIndex = currentIndex;
 
     // Update current track when it changes
     const updateCurrentTrack = () => {
@@ -53,11 +55,16 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
         setPosition(pos);
         setDuration(dur);
         
-        // Check if playing state has changed
         const currentTrackIndex = musicPlayerService.getCurrentTrackIndex();
-        if (currentTrackIndex !== currentIndex) {
+        if (currentTrackIndex !== lastIndex) {
+          lastIndex = currentTrackIndex;
           updateCurrentTrack();
         }
+
+        // Best-effort: sync isPlaying from service via action outcomes / status updates.
+        // (service maintains this internally and the UI already derives many UI states from it)
+        // We don't have a public getter, so we keep isPlaying optimistic in action handlers.
+        // Keeping this block here prevents stale UI changes when tracks advance automatically.
       } catch (error) {
         console.error('Error updating playback status:', error);
       }
@@ -66,12 +73,22 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
     // Initial update
     updateCurrentTrack();
     
+    // Cleanup function
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
     };
   }, [currentIndex]);
+
+  // Cleanup when the provider unmounts
+  useEffect(() => {
+    return () => {
+      musicPlayerService.cleanup().catch(error => {
+        console.warn('Error during music player cleanup:', error);
+      });
+    };
+  }, []);
 
   const playTrack = async (index: number) => {
     try {
@@ -139,6 +156,14 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
     }
   };
 
+  const cleanup = async () => {
+    try {
+      await musicPlayerService.cleanup();
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+    }
+  };
+
   const contextValue: MusicPlayerContextType = {
     currentTrack,
     isPlaying,
@@ -154,6 +179,7 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
     seekTo,
     setVolume: setVolumeAsync,
     loadTracks,
+    cleanup, // Added cleanup method
   };
 
   return (

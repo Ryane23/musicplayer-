@@ -26,7 +26,7 @@ const demoTracks: MusicTrack[] = [
     artist: 'Neon Avenue',
     album: 'Night Pulse',
     duration: 221000,
-    uri: 'https://example.com/demo-1.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/400x400/1F2937/F8FAFC?text=MD',
   },
   {
@@ -35,7 +35,7 @@ const demoTracks: MusicTrack[] = [
     artist: 'Blue Static',
     album: 'Night Pulse',
     duration: 194000,
-    uri: 'https://example.com/demo-2.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/400x400/0F766E/F8FAFC?text=CL',
   },
   {
@@ -44,7 +44,7 @@ const demoTracks: MusicTrack[] = [
     artist: 'Tidewave',
     album: 'Open Space',
     duration: 205000,
-    uri: 'https://example.com/demo-3.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/400x400/7C3AED/F8FAFC?text=SE',
   },
   {
@@ -53,7 +53,7 @@ const demoTracks: MusicTrack[] = [
     artist: 'Tidewave',
     album: 'Open Space',
     duration: 248000,
-    uri: 'https://example.com/demo-4.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/400x400/EA580C/F8FAFC?text=GR',
   },
   {
@@ -62,7 +62,7 @@ const demoTracks: MusicTrack[] = [
     artist: 'Afterglow',
     album: 'Warm Signals',
     duration: 232000,
-    uri: 'https://example.com/demo-5.mp3',
+    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     coverUri: 'https://placehold.co/400x400/DB2777/F8FAFC?text=SB',
   },
 ];

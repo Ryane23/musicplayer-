@@ -18,7 +18,8 @@ const MusicScreen: React.FC = () => {
         artist: 'The Weeknd',
         album: 'After Hours',
         duration: 200000, // in milliseconds
-        uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', // Placeholder URL
+        uri: 'https://www2.cs.uic.edu/~i101/SoundFiles/StarWars60.wav', // Known-good demo file
+
         coverUri: 'https://placehold.co/300x300/8A2BE2/FFFFFF?text=ALBUM+ART',
       },
       {
@@ -27,7 +28,8 @@ const MusicScreen: React.FC = () => {
         artist: 'The Weeknd',
         album: 'After Hours',
         duration: 215000,
-        uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', // Placeholder URL
+        uri: 'https://www2.cs.uic.edu/~i101/SoundFiles/ImperialMarch60.wav', // Known-good demo file
+
         coverUri: 'https://placehold.co/300x300/FF6B6B/FFFFFF?text=ALBUM+ART',
       },
       {
@@ -36,7 +38,8 @@ const MusicScreen: React.FC = () => {
         artist: 'Dua Lipa',
         album: 'Future Nostalgia',
         duration: 223000,
-        uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', // Placeholder URL
+        uri: 'https://www2.cs.uic.edu/~i101/SoundFiles/volume1.wav', // Known-good demo file
+
         coverUri: 'https://placehold.co/300x300/4ECDC4/FFFFFF?text=ALBUM+ART',
       },
       {
@@ -45,7 +48,8 @@ const MusicScreen: React.FC = () => {
         artist: 'Dua Lipa',
         album: 'Future Nostalgia',
         duration: 183000,
-        uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', // Placeholder URL
+        uri: 'https://www2.cs.uic.edu/~i101/SoundFiles/volume2.wav', // Known-good demo file
+
         coverUri: 'https://placehold.co/300x300/FFD166/FFFFFF?text=ALBUM+ART',
       },
       {
@@ -54,7 +58,8 @@ const MusicScreen: React.FC = () => {
         artist: 'Harry Styles',
         album: 'Fine Line',
         duration: 174000,
-        uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', // Placeholder URL
+        uri: 'https://www2.cs.uic.edu/~i101/SoundFiles/volume3.wav', // Known-good demo file
+
         coverUri: 'https://placehold.co/300x300/06D6A0/FFFFFF?text=ALBUM+ART',
       },
     ];
