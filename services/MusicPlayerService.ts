@@ -2,6 +2,8 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 import { Platform } from 'react-native';
 import { MusicTrack } from '../types/music';
 
+export type RepeatMode = 'off' | 'one' | 'all';
+
 type PlaybackListener = (state: {
   position: number;
   duration: number;
@@ -17,6 +19,10 @@ class MusicPlayerService {
   private durationMillis: number = 0;
   private listeners = new Set<PlaybackListener>();
   private audioModeReady = false;
+  private shuffleEnabled = false;
+  private repeatMode: RepeatMode = 'off';
+  private playbackRate = 1;
+  private storedVolume = 1;
 
   private notifyListeners() {
     const snapshot = {
@@ -37,10 +43,61 @@ class MusicPlayerService {
     this.durationMillis = status.durationMillis ?? 0;
     this.notifyListeners();
 
-    if (status.didJustFinish && !status.isLooping) {
-      void this.playNext();
+    if (status.didJustFinish && this.repeatMode !== 'one') {
+      void this.handleTrackFinished();
     }
   };
+
+  private async handleTrackFinished() {
+    if (this.repeatMode === 'one') {
+      await this.seekTo(0);
+      if (this.soundObject) {
+        await this.soundObject.playAsync();
+      }
+      return;
+    }
+
+    if (
+      this.repeatMode === 'all' ||
+      this.currentTrackIndex < this.tracks.length - 1
+    ) {
+      await this.playNext();
+      return;
+    }
+
+    this.isPlaying = false;
+    this.notifyListeners();
+  }
+
+  private getRandomNextIndex(): number {
+    if (this.tracks.length <= 1) {
+      return this.currentTrackIndex;
+    }
+
+    let nextIndex = this.currentTrackIndex;
+    while (nextIndex === this.currentTrackIndex) {
+      nextIndex = Math.floor(Math.random() * this.tracks.length);
+    }
+    return nextIndex;
+  }
+
+  private async applySoundSettings(sound: Audio.Sound) {
+    await sound.setVolumeAsync(this.storedVolume);
+
+    if (this.repeatMode === 'one') {
+      await sound.setIsLoopingAsync(true);
+    } else {
+      await sound.setIsLoopingAsync(false);
+    }
+
+    if (this.playbackRate !== 1) {
+      try {
+        await sound.setRateAsync(this.playbackRate, true);
+      } catch (error) {
+        console.warn('Playback rate not supported on this platform:', error);
+      }
+    }
+  }
 
   private async ensureAudioMode() {
     if (this.audioModeReady) {
@@ -141,6 +198,7 @@ class MusicPlayerService {
       );
 
       this.soundObject = sound;
+      await this.applySoundSettings(sound);
       this.isPlaying = true;
 
       const status = await sound.getStatusAsync();
@@ -237,35 +295,109 @@ class MusicPlayerService {
     return this.durationMillis;
   }
 
+  getShuffle(): boolean {
+    return this.shuffleEnabled;
+  }
+
+  getRepeatMode(): RepeatMode {
+    return this.repeatMode;
+  }
+
+  getPlaybackRate(): number {
+    return this.playbackRate;
+  }
+
+  getVolume(): number {
+    return this.storedVolume;
+  }
+
+  setShuffle(enabled: boolean) {
+    this.shuffleEnabled = enabled;
+  }
+
+  setRepeatMode(mode: RepeatMode) {
+    this.repeatMode = mode;
+    if (this.soundObject) {
+      void this.soundObject.setIsLoopingAsync(mode === 'one');
+    }
+  }
+
+  cycleRepeatMode(): RepeatMode {
+    const order: RepeatMode[] = ['off', 'all', 'one'];
+    const next = order[(order.indexOf(this.repeatMode) + 1) % order.length];
+    this.setRepeatMode(next);
+    return next;
+  }
+
+  async setPlaybackRate(rate: number) {
+    this.playbackRate = rate;
+    if (!this.soundObject) {
+      return;
+    }
+
+    try {
+      await this.soundObject.setRateAsync(rate, true);
+    } catch (error) {
+      console.warn('Failed to set playback rate:', error);
+    }
+  }
+
   async playNext() {
-    if (this.tracks.length === 0) return;
+    if (this.tracks.length === 0) {
+      return;
+    }
+
+    if (this.shuffleEnabled && this.tracks.length > 1) {
+      await this.playTrack(this.getRandomNextIndex());
+      return;
+    }
 
     let nextIndex = this.currentTrackIndex + 1;
     if (nextIndex >= this.tracks.length) {
-      nextIndex = 0;
+      nextIndex = this.repeatMode === 'all' ? 0 : this.currentTrackIndex;
+      if (nextIndex === this.currentTrackIndex) {
+        this.isPlaying = false;
+        this.notifyListeners();
+        return;
+      }
     }
 
     await this.playTrack(nextIndex);
   }
 
   async playPrevious() {
-    if (this.tracks.length === 0) return;
+    if (this.tracks.length === 0) {
+      return;
+    }
+
+    if (this.positionMillis > 3000) {
+      await this.seekTo(0);
+      return;
+    }
+
+    if (this.shuffleEnabled && this.tracks.length > 1) {
+      await this.playTrack(this.getRandomNextIndex());
+      return;
+    }
 
     let prevIndex = this.currentTrackIndex - 1;
     if (prevIndex < 0) {
-      prevIndex = this.tracks.length - 1;
+      prevIndex = this.repeatMode === 'all' ? this.tracks.length - 1 : 0;
     }
 
     await this.playTrack(prevIndex);
   }
 
   async setVolume(volume: number) {
+    const clamped = Math.max(0, Math.min(volume, 1));
+    this.storedVolume = clamped;
+
     if (!this.soundObject) {
       return;
     }
 
     try {
-      await this.soundObject.setVolumeAsync(volume);
+      await this.soundObject.setVolumeAsync(clamped);
     } catch (error) {
       console.error('Error setting volume:', error);
     }

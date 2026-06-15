@@ -1,6 +1,6 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { musicPlayerService } from '../services/MusicPlayerService';
+import { musicPlayerService, RepeatMode } from '../services/MusicPlayerService';
 import { MusicTrack } from '../types/music';
 
 interface MusicPlayerContextType {
@@ -11,30 +11,42 @@ interface MusicPlayerContextType {
   volume: number;
   currentIndex: number;
   tracks: MusicTrack[];
+  shuffle: boolean;
+  repeatMode: RepeatMode;
+  playbackRate: number;
+  showVisualizer: boolean;
+  sleepTimerMinutes: number;
   playTrack: (index: number) => Promise<void>;
   togglePlayPause: () => Promise<void>;
   playNext: () => Promise<void>;
   playPrevious: () => Promise<void>;
   seekTo: (position: number) => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
+  setShuffle: (enabled: boolean) => void;
+  cycleRepeatMode: () => void;
+  setPlaybackRate: (rate: number) => Promise<void>;
+  setShowVisualizer: (enabled: boolean) => void;
+  setSleepTimerMinutes: (minutes: number) => void;
   loadTracks: (tracks: MusicTrack[]) => Promise<void>;
   cleanup: () => Promise<void>;
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(undefined);
 
-interface MusicPlayerProviderProps {
-  children: ReactNode;
-}
-
-export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ children }) => {
+export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1.0);
+  const [volume, setVolume] = useState(1);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [tracks, setTracks] = useState<MusicTrack[]>([]);
+  const [shuffle, setShuffleState] = useState(false);
+  const [repeatMode, setRepeatModeState] = useState<RepeatMode>('off');
+  const [playbackRate, setPlaybackRateState] = useState(1);
+  const [showVisualizer, setShowVisualizer] = useState(true);
+  const [sleepTimerMinutes, setSleepTimerMinutes] = useState(0);
+  const sleepTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const unsubscribe = musicPlayerService.subscribePlaybackState((state) => {
@@ -46,8 +58,7 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
     const pollMs = Platform.OS === 'web' ? 250 : 500;
     const intervalId = setInterval(() => {
       void musicPlayerService.syncPlaybackState();
-      const track = musicPlayerService.getCurrentTrack();
-      setCurrentTrack(track);
+      setCurrentTrack(musicPlayerService.getCurrentTrack());
       setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
     }, pollMs);
 
@@ -61,6 +72,28 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
   }, []);
 
   useEffect(() => {
+    if (sleepTimeoutRef.current) {
+      clearTimeout(sleepTimeoutRef.current);
+      sleepTimeoutRef.current = null;
+    }
+
+    if (sleepTimerMinutes <= 0 || !isPlaying) {
+      return;
+    }
+
+    sleepTimeoutRef.current = setTimeout(() => {
+      void musicPlayerService.stop();
+      setSleepTimerMinutes(0);
+    }, sleepTimerMinutes * 60 * 1000);
+
+    return () => {
+      if (sleepTimeoutRef.current) {
+        clearTimeout(sleepTimeoutRef.current);
+      }
+    };
+  }, [sleepTimerMinutes, isPlaying]);
+
+  useEffect(() => {
     return () => {
       musicPlayerService.cleanup().catch((error) => {
         console.warn('Error during music player cleanup:', error);
@@ -69,104 +102,97 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
   }, []);
 
   const playTrack = async (index: number) => {
-    try {
-      await musicPlayerService.playTrack(index);
-      setCurrentTrack(musicPlayerService.getCurrentTrack());
-      setCurrentIndex(index);
-      setIsPlaying(musicPlayerService.getIsPlaying());
-    } catch (error) {
-      console.error('Error playing track:', error);
-    }
+    await musicPlayerService.playTrack(index);
+    setCurrentTrack(musicPlayerService.getCurrentTrack());
+    setCurrentIndex(index);
+    setIsPlaying(musicPlayerService.getIsPlaying());
   };
 
   const togglePlayPause = async () => {
-    try {
-      await musicPlayerService.togglePlayPause();
-      setIsPlaying(musicPlayerService.getIsPlaying());
-    } catch (error) {
-      console.error('Error toggling play/pause:', error);
-    }
+    await musicPlayerService.togglePlayPause();
+    setIsPlaying(musicPlayerService.getIsPlaying());
   };
 
   const playNext = async () => {
-    try {
-      await musicPlayerService.playNext();
-      setCurrentTrack(musicPlayerService.getCurrentTrack());
-      setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
-      setIsPlaying(musicPlayerService.getIsPlaying());
-    } catch (error) {
-      console.error('Error playing next track:', error);
-    }
+    await musicPlayerService.playNext();
+    setCurrentTrack(musicPlayerService.getCurrentTrack());
+    setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
+    setIsPlaying(musicPlayerService.getIsPlaying());
   };
 
   const playPrevious = async () => {
-    try {
-      await musicPlayerService.playPrevious();
-      setCurrentTrack(musicPlayerService.getCurrentTrack());
-      setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
-      setIsPlaying(musicPlayerService.getIsPlaying());
-    } catch (error) {
-      console.error('Error playing previous track:', error);
-    }
+    await musicPlayerService.playPrevious();
+    setCurrentTrack(musicPlayerService.getCurrentTrack());
+    setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
+    setIsPlaying(musicPlayerService.getIsPlaying());
   };
 
   const seekTo = async (seekPosition: number) => {
-    try {
-      await musicPlayerService.seekTo(seekPosition);
-      setPosition(seekPosition);
-    } catch (error) {
-      console.error('Error seeking to position:', error);
-    }
+    await musicPlayerService.seekTo(seekPosition);
+    setPosition(seekPosition);
   };
 
   const setVolumeAsync = async (vol: number) => {
-    try {
-      await musicPlayerService.setVolume(vol);
-      setVolume(vol);
-    } catch (error) {
-      console.error('Error setting volume:', error);
-    }
+    await musicPlayerService.setVolume(vol);
+    setVolume(musicPlayerService.getVolume());
+  };
+
+  const setShuffle = (enabled: boolean) => {
+    musicPlayerService.setShuffle(enabled);
+    setShuffleState(enabled);
+  };
+
+  const cycleRepeatMode = () => {
+    const next = musicPlayerService.cycleRepeatMode();
+    setRepeatModeState(next);
+  };
+
+  const setPlaybackRate = async (rate: number) => {
+    await musicPlayerService.setPlaybackRate(rate);
+    setPlaybackRateState(rate);
   };
 
   const loadTracks = async (newTracks: MusicTrack[]) => {
-    try {
-      await musicPlayerService.loadTracks(newTracks);
-      setTracks([...newTracks]);
-      setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
-      setCurrentTrack(musicPlayerService.getCurrentTrack());
-    } catch (error) {
-      console.error('Error loading tracks:', error);
-    }
+    await musicPlayerService.loadTracks(newTracks);
+    setTracks([...newTracks]);
+    setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
+    setCurrentTrack(musicPlayerService.getCurrentTrack());
   };
 
   const cleanup = async () => {
-    try {
-      await musicPlayerService.cleanup();
-    } catch (error) {
-      console.error('Error during cleanup:', error);
-    }
-  };
-
-  const contextValue: MusicPlayerContextType = {
-    currentTrack,
-    isPlaying,
-    position,
-    duration,
-    volume,
-    currentIndex,
-    tracks,
-    playTrack,
-    togglePlayPause,
-    playNext,
-    playPrevious,
-    seekTo,
-    setVolume: setVolumeAsync,
-    loadTracks,
-    cleanup,
+    await musicPlayerService.cleanup();
   };
 
   return (
-    <MusicPlayerContext.Provider value={contextValue}>
+    <MusicPlayerContext.Provider
+      value={{
+        currentTrack,
+        isPlaying,
+        position,
+        duration,
+        volume,
+        currentIndex,
+        tracks,
+        shuffle,
+        repeatMode,
+        playbackRate,
+        showVisualizer,
+        sleepTimerMinutes,
+        playTrack,
+        togglePlayPause,
+        playNext,
+        playPrevious,
+        seekTo,
+        setVolume: setVolumeAsync,
+        setShuffle,
+        cycleRepeatMode,
+        setPlaybackRate,
+        setShowVisualizer,
+        setSleepTimerMinutes,
+        loadTracks,
+        cleanup,
+      }}
+    >
       {children}
     </MusicPlayerContext.Provider>
   );
@@ -174,8 +200,10 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
 
 export const useMusicPlayer = (): MusicPlayerContextType => {
   const context = useContext(MusicPlayerContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useMusicPlayer must be used within a MusicPlayerProvider');
   }
   return context;
 };
+
+export type { RepeatMode };

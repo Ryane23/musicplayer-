@@ -1,240 +1,250 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Image,
+  Pressable,
+  TouchableOpacity,
+  FlatList,
+  Dimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
 import AudioVisualizer from '@/components/AudioVisualizer';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
-import { MusicTrack } from '@/types/music';
-import { USE_NATIVE_DRIVER } from '@/utils/animation';
+import { Spotify } from '@/constants/theme';
+import { formatDuration } from '@/utils/format';
 
-const fallbackTrack: MusicTrack = {
-  id: 'preview',
-  title: 'Select a Track',
-  artist: 'Your local library',
-  album: 'Offline Music',
-  duration: 240000,
-  uri: '',
-  coverUri: 'https://placehold.co/600x600/111827/F8FAFC?text=LOCAL',
-};
-
-const speedOptions = [0.75, 1, 1.25, 1.5];
-
-function formatTime(millis: number) {
-  const totalSeconds = Math.floor(millis / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ART_SIZE = Math.min(SCREEN_WIDTH - 48, 340);
 
 export default function NowPlayingScreen() {
   const router = useRouter();
-  const tint = useThemeColor({}, 'tint');
-  const textColor = useThemeColor({}, 'text');
-  const background = useThemeColor({}, 'background');
-  const surface = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.9)';
-  const borderColor = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.1)';
   const {
     currentTrack,
     isPlaying,
     position,
     duration,
     volume,
+    currentIndex,
+    tracks,
+    shuffle,
+    repeatMode,
+    playbackRate,
+    showVisualizer,
     togglePlayPause,
     playNext,
     playPrevious,
     seekTo,
+    setVolume,
+    setShuffle,
+    cycleRepeatMode,
+    playTrack,
   } = useMusicPlayer();
 
-  const [showLyrics, setShowLyrics] = useState(false);
   const [railWidth, setRailWidth] = useState(0);
+  const [volumeRailWidth, setVolumeRailWidth] = useState(0);
   const [showQueue, setShowQueue] = useState(false);
-  const [showVisualizer, setShowVisualizer] = useState(true);
   const [favorite, setFavorite] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const [shuffle, setShuffle] = useState(false);
-  const [speed, setSpeed] = useState(1);
-  const pulse = useRef(new Animated.Value(0)).current;
 
-  const track = currentTrack ?? fallbackTrack;
-  const trackDuration = duration || track.duration;
+  const track = currentTrack;
+  const trackDuration = duration > 0 ? duration : track?.duration ?? 0;
   const progress = trackDuration > 0 ? Math.min((position / trackDuration) * 100, 100) : 0;
 
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 2600,
-          useNativeDriver: USE_NATIVE_DRIVER,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0,
-          duration: 2600,
-          useNativeDriver: USE_NATIVE_DRIVER,
-        }),
-      ])
-    );
-
-    animation.start();
-    return () => animation.stop();
-  }, [pulse]);
-
-  const ambientOpacity = pulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.18, 0.34],
-  });
-
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: background }]}>
-      <Animated.View style={[styles.ambientLayer, { backgroundColor: tint, opacity: ambientOpacity }]} />
-      <View style={[styles.ambientLayerSecondary, { backgroundColor: favorite ? '#db2777' : '#0f766e' }]} />
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <TouchableOpacity style={[styles.iconButton, { backgroundColor: surface, borderColor }]} onPress={() => router.back()}>
-            <Ionicons name="chevron-down" size={22} color={textColor} />
-          </TouchableOpacity>
-          <View style={styles.headerTitle}>
-            <ThemedText type="defaultSemiBold" style={styles.headerEyebrow}>
-              Now Playing
-            </ThemedText>
-            <ThemedText type="default" style={styles.headerSubtext} numberOfLines={1}>
-              {track.album}
-            </ThemedText>
-          </View>
-          <TouchableOpacity style={[styles.iconButton, { backgroundColor: surface, borderColor }]} onPress={() => setShowQueue(!showQueue)}>
-            <Ionicons name={showQueue ? 'list-circle' : 'list'} size={22} color={showQueue ? tint : textColor} />
+  if (!track) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyState}>
+          <Ionicons name="musical-notes-outline" size={64} color={Spotify.textSecondary} />
+          <ThemedText style={styles.emptyTitle}>Nothing playing</ThemedText>
+          <ThemedText style={styles.emptySubtitle}>Pick a song from your library</ThemedText>
+          <TouchableOpacity style={styles.emptyButton} onPress={() => router.back()}>
+            <ThemedText style={styles.emptyButtonText}>Go back</ThemedText>
           </TouchableOpacity>
         </View>
+      </SafeAreaView>
+    );
+  }
 
-        <View style={styles.artworkStage}>
-          <View style={[styles.artworkShadow, { backgroundColor: tint }]} />
+  const repeatIcon =
+    repeatMode === 'one' ? 'repeat' : 'repeat';
+  const repeatColor = repeatMode !== 'off' ? Spotify.green : Spotify.textPrimary;
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.topGlow} />
+
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-down" size={28} color={Spotify.textPrimary} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <ThemedText style={styles.headerLabel}>PLAYING FROM</ThemedText>
+          <ThemedText style={styles.headerAlbum} numberOfLines={1}>
+            {track.album}
+          </ThemedText>
+        </View>
+        <TouchableOpacity style={styles.headerBtn} onPress={() => setShowQueue(!showQueue)}>
+          <Ionicons
+            name={showQueue ? 'list' : 'ellipsis-horizontal'}
+            size={22}
+            color={Spotify.textPrimary}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.main}>
+        <View style={styles.artworkWrap}>
           {track.coverUri ? (
             <Image source={{ uri: track.coverUri }} style={styles.artwork} />
           ) : (
-            <View style={[styles.artwork, styles.artworkFallback, { backgroundColor: tint }]}>
-              <Ionicons name="musical-notes" size={58} color="#fff" />
+            <View style={[styles.artwork, styles.artworkFallback]}>
+              <Ionicons name="musical-notes" size={72} color={Spotify.green} />
             </View>
           )}
         </View>
 
-        <View style={styles.trackBlock}>
-          <ThemedText type="title" style={styles.trackTitle} numberOfLines={2}>
-            {track.title}
-          </ThemedText>
-          <ThemedText type="default" style={styles.trackArtist} numberOfLines={1}>
-            {track.artist}
-          </ThemedText>
+        <View style={styles.trackRow}>
+          <View style={styles.trackInfo}>
+            <ThemedText style={styles.title} numberOfLines={2}>
+              {track.title}
+            </ThemedText>
+            <ThemedText style={styles.artist} numberOfLines={1}>
+              {track.artist}
+            </ThemedText>
+          </View>
+          <TouchableOpacity onPress={() => setFavorite(!favorite)} style={styles.heartBtn}>
+            <Ionicons
+              name={favorite ? 'heart' : 'heart-outline'}
+              size={26}
+              color={favorite ? '#E91429' : Spotify.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
 
         {showVisualizer ? <AudioVisualizer isPlaying={isPlaying} /> : null}
 
-        <View style={[styles.progressPanel, { backgroundColor: surface, borderColor }]}>
-          <View style={styles.timeRow}>
-            <ThemedText type="default" style={styles.timeText}>
-              {formatTime(position)}
-            </ThemedText>
-            <ThemedText type="default" style={styles.timeText}>
-              {formatTime(trackDuration)}
-            </ThemedText>
-          </View>
+        <View style={styles.progressBlock}>
           <Pressable
-            style={[styles.progressRail, { backgroundColor: borderColor }]}
-            onLayout={(event) => setRailWidth(event.nativeEvent.layout.width)}
-            onPress={(event) => {
+            style={styles.progressRail}
+            onLayout={(e) => setRailWidth(e.nativeEvent.layout.width)}
+            onPress={(e) => {
               if (railWidth <= 0) return;
-              const ratio = Math.max(0, Math.min(event.nativeEvent.locationX / railWidth, 1));
+              const ratio = Math.max(0, Math.min(e.nativeEvent.locationX / railWidth, 1));
               void seekTo(ratio * trackDuration);
             }}
           >
-            <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: tint }]} />
+            <View style={[styles.progressFill, { width: `${progress}%` }]} />
           </Pressable>
+          <View style={styles.timeRow}>
+            <ThemedText style={styles.time}>{formatDuration(position)}</ThemedText>
+            <ThemedText style={styles.time}>{formatDuration(trackDuration)}</ThemedText>
+          </View>
         </View>
 
         <View style={styles.controls}>
-          <TouchableOpacity style={styles.secondaryControl} onPress={() => setShuffle(!shuffle)}>
-            <Ionicons name="shuffle" size={22} color={shuffle ? tint : textColor} />
+          <TouchableOpacity onPress={() => setShuffle(!shuffle)} style={styles.sideControl}>
+            <Ionicons
+              name="shuffle"
+              size={22}
+              color={shuffle ? Spotify.green : Spotify.textSecondary}
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.skipControl} onPress={playPrevious}>
-            <Ionicons name="play-skip-back" size={30} color={textColor} />
+
+          <TouchableOpacity onPress={playPrevious} style={styles.skipControl}>
+            <Ionicons name="play-skip-back" size={32} color={Spotify.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.primaryControl, { backgroundColor: tint }]} onPress={togglePlayPause}>
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={34} color="#fff" />
+
+          <TouchableOpacity style={styles.playBtn} onPress={togglePlayPause}>
+            <Ionicons
+              name={isPlaying ? 'pause' : 'play'}
+              size={36}
+              color={Spotify.black}
+              style={!isPlaying ? { marginLeft: 4 } : undefined}
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.skipControl} onPress={playNext}>
-            <Ionicons name="play-skip-forward" size={30} color={textColor} />
+
+          <TouchableOpacity onPress={playNext} style={styles.skipControl}>
+            <Ionicons name="play-skip-forward" size={32} color={Spotify.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryControl} onPress={() => setRepeat(!repeat)}>
-            <Ionicons name="repeat" size={22} color={repeat ? tint : textColor} />
+
+          <TouchableOpacity onPress={cycleRepeatMode} style={styles.sideControl}>
+            <Ionicons name={repeatIcon} size={22} color={repeatColor} />
+            {repeatMode === 'one' ? (
+              <View style={styles.repeatOneBadge}>
+                <ThemedText style={styles.repeatOneText}>1</ThemedText>
+              </View>
+            ) : null}
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.toolPanel, { backgroundColor: surface, borderColor }]}>
-          <TouchableOpacity style={styles.toolButton} onPress={() => setFavorite(!favorite)}>
-            <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={22} color={favorite ? '#db2777' : textColor} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolButton} onPress={() => setShowLyrics(!showLyrics)}>
-            <Ionicons name={showLyrics ? 'reader' : 'reader-outline'} size={22} color={showLyrics ? tint : textColor} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolButton} onPress={() => setShowVisualizer(!showVisualizer)}>
-            <Ionicons name={showVisualizer ? 'pulse' : 'pulse-outline'} size={22} color={showVisualizer ? tint : textColor} />
-          </TouchableOpacity>
-          <View style={styles.volumeBlock}>
-            <Ionicons name="volume-medium" size={18} color={textColor} />
-            <View style={[styles.volumeRail, { backgroundColor: borderColor }]}>
-              <View style={[styles.volumeFill, { width: `${volume * 100}%`, backgroundColor: tint }]} />
-            </View>
-          </View>
+        <View style={styles.volumeRow}>
+          <Ionicons name="volume-low" size={18} color={Spotify.textSecondary} />
+          <Pressable
+            style={styles.volumeRail}
+            onLayout={(e) => setVolumeRailWidth(e.nativeEvent.layout.width)}
+            onPress={(e) => {
+              if (volumeRailWidth <= 0) return;
+              const ratio = Math.max(0, Math.min(e.nativeEvent.locationX / volumeRailWidth, 1));
+              void setVolume(ratio);
+            }}
+          >
+            <View style={[styles.volumeFill, { width: `${volume * 100}%` }]} />
+          </Pressable>
+          <Ionicons name="volume-high" size={18} color={Spotify.textSecondary} />
         </View>
 
-        <View style={styles.speedRow}>
-          {speedOptions.map((option) => {
-            const selected = speed === option;
-            return (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.speedChip,
-                  {
-                    backgroundColor: selected ? tint : surface,
-                    borderColor: selected ? tint : borderColor,
-                  },
-                ]}
-                onPress={() => setSpeed(option)}
-              >
-                <ThemedText type="defaultSemiBold" style={{ color: selected ? '#fff' : textColor }}>
-                  {option}x
-                </ThemedText>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={styles.metaRow}>
+          <ThemedText style={styles.metaText}>{playbackRate}x speed</ThemedText>
+          <ThemedText style={styles.metaText}>{tracks.length} in queue</ThemedText>
         </View>
+      </View>
 
-        {showLyrics ? (
-          <View style={[styles.panel, { backgroundColor: surface, borderColor }]}>
-            <ThemedText type="defaultSemiBold" style={styles.panelTitle}>
-              Lyrics
-            </ThemedText>
-            <ThemedText type="default" style={styles.panelText}>
-              Synced local lyrics will appear here when available.
-            </ThemedText>
-          </View>
-        ) : null}
-
-        {showQueue ? (
-          <View style={[styles.panel, { backgroundColor: surface, borderColor }]}>
-            <ThemedText type="defaultSemiBold" style={styles.panelTitle}>
-              Up Next
-            </ThemedText>
-            <ThemedText type="default" style={styles.panelText}>
-              Queue controls are ready for your local playlist flow.
-            </ThemedText>
-          </View>
-        ) : null}
-      </ScrollView>
+      {showQueue ? (
+        <View style={styles.queuePanel}>
+          <ThemedText style={styles.queueTitle}>Up next</ThemedText>
+          <FlatList
+            data={tracks}
+            keyExtractor={(item) => item.id}
+            style={styles.queueList}
+            renderItem={({ item, index }) => {
+              const active = index === currentIndex;
+              return (
+                <TouchableOpacity
+                  style={[styles.queueItem, active && styles.queueItemActive]}
+                  onPress={() => void playTrack(index)}
+                >
+                  <View style={styles.queueIndex}>
+                    {active && isPlaying ? (
+                      <Ionicons name="volume-medium" size={16} color={Spotify.green} />
+                    ) : (
+                      <ThemedText style={[styles.queueIndexText, active && styles.queueIndexActive]}>
+                        {index + 1}
+                      </ThemedText>
+                    )}
+                  </View>
+                  <View style={styles.queueMeta}>
+                    <ThemedText
+                      style={[styles.queueTrackTitle, active && styles.queueTrackActive]}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </ThemedText>
+                    <ThemedText style={styles.queueArtist} numberOfLines={1}>
+                      {item.artist}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={styles.queueDuration}>
+                    {formatDuration(item.duration)}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -242,125 +252,144 @@ export default function NowPlayingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Spotify.black,
   },
-  ambientLayer: {
+  topGlow: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '48%',
-  },
-  ambientLayerSecondary: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '34%',
-    opacity: 0.08,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 34,
+    top: -60,
+    alignSelf: 'center',
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 0.7,
+    backgroundColor: Spotify.green,
+    opacity: 0.07,
+    borderRadius: SCREEN_WIDTH,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 22,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
-  iconButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: 1,
+  headerBtn: {
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: {
+  headerCenter: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 14,
   },
-  headerEyebrow: {
-    fontSize: 14,
+  headerLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Spotify.textSecondary,
+    letterSpacing: 1,
   },
-  headerSubtext: {
-    fontSize: 12,
-    opacity: 0.7,
+  headerAlbum: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Spotify.textPrimary,
     marginTop: 2,
   },
-  artworkStage: {
+  main: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'flex-end',
+    paddingBottom: 16,
+  },
+  artworkWrap: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 26,
-  },
-  artworkShadow: {
-    position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 28,
-    transform: [{ rotate: '8deg' }],
-    opacity: 0.22,
+    marginBottom: 28,
   },
   artwork: {
-    width: '88%',
-    maxWidth: 330,
-    aspectRatio: 1,
-    borderRadius: 30,
+    width: ART_SIZE,
+    height: ART_SIZE,
+    borderRadius: 8,
+    boxShadow: '0px 16px 40px rgba(0,0,0,0.55)',
   },
   artworkFallback: {
+    backgroundColor: Spotify.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trackBlock: {
+  trackRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 20,
   },
-  trackTitle: {
-    textAlign: 'center',
-    lineHeight: 36,
+  trackInfo: {
+    flex: 1,
+    paddingRight: 12,
   },
-  trackArtist: {
-    textAlign: 'center',
-    opacity: 0.72,
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Spotify.textPrimary,
+    letterSpacing: -0.5,
+    lineHeight: 30,
+  },
+  artist: {
+    fontSize: 16,
+    color: Spotify.textSecondary,
     marginTop: 6,
   },
-  progressPanel: {
-    borderWidth: 1,
-    borderRadius: 22,
-    padding: 14,
-    marginTop: 4,
+  heartBtn: {
+    padding: 8,
   },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  timeText: {
-    fontSize: 12,
-    opacity: 0.72,
+  progressBlock: {
+    marginBottom: 20,
   },
   progressRail: {
-    height: 9,
-    borderRadius: 999,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Spotify.card,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 999,
+    backgroundColor: Spotify.textPrimary,
+    borderRadius: 2,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  time: {
+    fontSize: 12,
+    color: Spotify.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: 24,
+    marginBottom: 20,
   },
-  secondaryControl: {
-    width: 42,
-    height: 42,
+  sideControl: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  repeatOneBadge: {
+    position: 'absolute',
+    right: 6,
+    bottom: 6,
+    backgroundColor: Spotify.green,
+    borderRadius: 6,
+    width: 12,
+    height: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  repeatOneText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: Spotify.black,
   },
   skipControl: {
     width: 52,
@@ -368,67 +397,127 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryControl: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+  playBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Spotify.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  toolPanel: {
-    borderWidth: 1,
-    borderRadius: 24,
+  volumeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    padding: 10,
-  },
-  toolButton: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  volumeBlock: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    marginBottom: 12,
   },
   volumeRail: {
     flex: 1,
-    height: 7,
-    borderRadius: 999,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Spotify.card,
     overflow: 'hidden',
   },
   volumeFill: {
     height: '100%',
-    borderRadius: 999,
+    backgroundColor: Spotify.textSecondary,
+    borderRadius: 2,
   },
-  speedRow: {
+  metaRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 18,
+    justifyContent: 'space-between',
   },
-  speedChip: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 12,
+  metaText: {
+    fontSize: 12,
+    color: Spotify.textMuted,
+  },
+  queuePanel: {
+    maxHeight: 220,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: Spotify.elevated,
+  },
+  queueTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Spotify.textPrimary,
+    marginBottom: 8,
+  },
+  queueList: {
+    flexGrow: 0,
+  },
+  queueItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 12,
+  },
+  queueItemActive: {
+    opacity: 1,
+  },
+  queueIndex: {
+    width: 24,
     alignItems: 'center',
   },
-  panel: {
-    borderWidth: 1,
+  queueIndexText: {
+    fontSize: 14,
+    color: Spotify.textSecondary,
+  },
+  queueIndexActive: {
+    color: Spotify.green,
+    fontWeight: '700',
+  },
+  queueMeta: {
+    flex: 1,
+  },
+  queueTrackTitle: {
+    fontSize: 15,
+    color: Spotify.textPrimary,
+    fontWeight: '500',
+  },
+  queueTrackActive: {
+    color: Spotify.green,
+    fontWeight: '700',
+  },
+  queueArtist: {
+    fontSize: 13,
+    color: Spotify.textSecondary,
+    marginTop: 2,
+  },
+  queueDuration: {
+    fontSize: 12,
+    color: Spotify.textSecondary,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Spotify.textPrimary,
+    marginTop: 8,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: Spotify.textSecondary,
+    textAlign: 'center',
+  },
+  emptyButton: {
+    marginTop: 16,
+    backgroundColor: Spotify.green,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderRadius: 24,
-    padding: 16,
-    marginTop: 14,
   },
-  panelTitle: {
-    fontSize: 16,
-    marginBottom: 6,
-  },
-  panelText: {
-    opacity: 0.72,
-    lineHeight: 21,
+  emptyButtonText: {
+    color: Spotify.black,
+    fontWeight: '700',
+    fontSize: 15,
   },
 });

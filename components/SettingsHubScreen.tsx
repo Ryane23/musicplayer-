@@ -1,222 +1,248 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+  Pressable,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
+import { useLibrary } from '@/contexts/LibraryContext';
+import { Spotify } from '@/constants/theme';
+import { TAB_BAR_HEIGHT, MINI_PLAYER_HEIGHT } from '@/utils/animation';
 
-const themePresets = ['Aurora', 'Midnight', 'Sand', 'Ocean'];
+const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5];
+const SLEEP_OPTIONS = [0, 15, 30, 45, 60];
 
-type SettingCardProps = {
-  icon: keyof typeof Ionicons.glyphMap;
+type SectionProps = {
   title: string;
-  description: string;
-  children?: React.ReactNode;
+  children: React.ReactNode;
 };
 
-function SettingCard({ icon, title, description, children }: SettingCardProps) {
-  const tint = useThemeColor({}, 'tint');
-  const textColor = useThemeColor({}, 'text');
-  const surface = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.88)';
-  const borderColor = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)';
-
+function Section({ title, children }: SectionProps) {
   return (
-    <View style={[styles.card, { backgroundColor: surface, borderColor }]}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.iconBadge, { backgroundColor: tint }]}>
-          <Ionicons name={icon} size={18} color="#fff" />
-        </View>
-        <View style={styles.cardText}>
-          <ThemedText type="defaultSemiBold" style={styles.cardTitle}>
-            {title}
-          </ThemedText>
-          <ThemedText type="default" style={styles.cardDescription}>
-            {description}
-          </ThemedText>
-        </View>
-      </View>
-      {children ? <View style={styles.cardBody}>{children}</View> : null}
+    <View style={styles.section}>
+      <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
+      <View style={styles.sectionCard}>{children}</View>
     </View>
   );
 }
 
-export default function SettingsHubScreen() {
-  const tint = useThemeColor({}, 'tint');
-  const textColor = useThemeColor({}, 'text');
-  const background = useThemeColor({}, 'background');
-  const surface = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.9)';
-  const borderColor = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)';
+type RowProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value?: string;
+  onPress?: () => void;
+  right?: React.ReactNode;
+};
 
-  const [darkMode, setDarkMode] = useState(true);
-  const [equalizerEnabled, setEqualizerEnabled] = useState(true);
-  const [bassBoost, setBassBoost] = useState(4);
-  const [sleepTimer, setSleepTimer] = useState(false);
-  const [libraryScan, setLibraryScan] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState('Midnight');
-
-  const optionRow = (label: string, value: string, icon: keyof typeof Ionicons.glyphMap) => (
-    <View style={[styles.optionRow, { borderColor }]}>
-      <View style={styles.optionLeft}>
-        <Ionicons name={icon} size={18} color={textColor} />
-        <ThemedText type="defaultSemiBold" style={styles.optionLabel}>
-          {label}
-        </ThemedText>
-      </View>
-      <View style={[styles.optionValue, { backgroundColor: surface }]}>
-        <ThemedText type="default" style={styles.optionValueText}>
-          {value}
-        </ThemedText>
-      </View>
+function SettingRow({ icon, label, value, onPress, right }: RowProps) {
+  const content = (
+    <View style={styles.row}>
+      <Ionicons name={icon} size={20} color={Spotify.textSecondary} />
+      <ThemedText style={styles.rowLabel}>{label}</ThemedText>
+      {right ?? (
+        <ThemedText style={styles.rowValue}>{value}</ThemedText>
+      )}
+      {onPress ? (
+        <Ionicons name="chevron-forward" size={18} color={Spotify.textMuted} />
+      ) : null}
     </View>
   );
 
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return content;
+}
+
+export default function SettingsHubScreen() {
+  const {
+    volume,
+    shuffle,
+    repeatMode,
+    playbackRate,
+    showVisualizer,
+    sleepTimerMinutes,
+    setVolume,
+    setShuffle,
+    setPlaybackRate,
+    setShowVisualizer,
+    setSleepTimerMinutes,
+    cycleRepeatMode,
+  } = useMusicPlayer();
+
+  const { tracks, isLoading, isDemo, hasPermission, libraryNote, refresh } = useLibrary();
+  const [volumeRailWidth, setVolumeRailWidth] = useState(0);
+  const [scanning, setScanning] = useState(false);
+
+  const handleScan = async () => {
+    setScanning(true);
+    try {
+      await refresh();
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const repeatLabel =
+    repeatMode === 'off' ? 'Off' : repeatMode === 'all' ? 'All' : 'One';
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: background }]}>
-      <View style={[styles.ambientBand, { backgroundColor: tint }]} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ThemedText style={styles.heading}>Settings</ThemedText>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View>
-            <ThemedText type="subtitle" style={styles.kicker}>
-              Personalize
-            </ThemedText>
-            <ThemedText type="title" style={styles.heading}>
-              Settings
-            </ThemedText>
+        <Section title="Playback">
+          <SettingRow
+            icon="shuffle"
+            label="Shuffle"
+            right={
+              <Switch
+                value={shuffle}
+                onValueChange={setShuffle}
+                trackColor={{ false: Spotify.card, true: Spotify.green }}
+                thumbColor={Spotify.textPrimary}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingRow
+            icon="repeat"
+            label="Repeat"
+            value={repeatLabel}
+            onPress={cycleRepeatMode}
+          />
+          <View style={styles.divider} />
+          <View style={styles.row}>
+            <Ionicons name="speedometer-outline" size={20} color={Spotify.textSecondary} />
+            <ThemedText style={styles.rowLabel}>Playback speed</ThemedText>
           </View>
-          <TouchableOpacity style={[styles.headerButton, { backgroundColor: surface, borderColor }]}>
-            <Ionicons name="ellipsis-horizontal" size={18} color={textColor} />
-          </TouchableOpacity>
-        </View>
-
-        <SettingCard
-          icon="moon"
-          title="Appearance"
-          description="Choose your theme and UI mood"
-        >
-          <View style={styles.switchRow}>
-            <View>
-              <ThemedText type="defaultSemiBold">Dark Mode</ThemedText>
-              <ThemedText type="default" style={styles.switchDescription}>
-                Keep the interface easy on the eyes
-              </ThemedText>
-            </View>
-            <Switch value={darkMode} onValueChange={setDarkMode} trackColor={{ false: '#94a3b8', true: tint }} />
-          </View>
-
-          <View style={styles.themeRow}>
-            {themePresets.map((theme) => {
-              const selected = selectedTheme === theme;
+          <View style={styles.chipRow}>
+            {SPEED_OPTIONS.map((speed) => {
+              const selected = playbackRate === speed;
               return (
                 <TouchableOpacity
-                  key={theme}
-                  onPress={() => setSelectedTheme(theme)}
-                  style={[
-                    styles.themeChip,
-                    {
-                      borderColor: selected ? tint : borderColor,
-                      backgroundColor: selected ? tint : surface,
-                    },
-                  ]}
+                  key={speed}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => void setPlaybackRate(speed)}
                 >
-                  <ThemedText type="defaultSemiBold" style={{ color: selected ? '#fff' : textColor }}>
-                    {theme}
+                  <ThemedText style={[styles.chipText, selected && styles.chipTextSelected]}>
+                    {speed}x
                   </ThemedText>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </SettingCard>
-
-        <SettingCard
-          icon="volume-high"
-          title="Playback and Audio"
-          description="Fine tune quality, equalizer, and bass"
-        >
-          <View style={styles.settingRow}>
-            <ThemedText type="defaultSemiBold">Audio Quality</ThemedText>
-            <View style={[styles.inlinePill, { backgroundColor: surface, borderColor }]}>
-              <ThemedText type="defaultSemiBold">High</ThemedText>
-            </View>
+          <View style={styles.divider} />
+          <View style={styles.row}>
+            <Ionicons name="volume-medium" size={20} color={Spotify.textSecondary} />
+            <ThemedText style={styles.rowLabel}>Volume</ThemedText>
+            <ThemedText style={styles.rowValue}>{Math.round(volume * 100)}%</ThemedText>
           </View>
-
-          <View style={styles.switchRow}>
-            <View>
-              <ThemedText type="defaultSemiBold">Equalizer</ThemedText>
-              <ThemedText type="default" style={styles.switchDescription}>
-                Shape the sound profile for your headphones
-              </ThemedText>
-            </View>
-            <Switch value={equalizerEnabled} onValueChange={setEqualizerEnabled} trackColor={{ false: '#94a3b8', true: tint }} />
-          </View>
-
-          <View style={styles.sliderBlock}>
-            <View style={styles.settingRow}>
-              <ThemedText type="defaultSemiBold">Bass Boost</ThemedText>
-              <ThemedText type="default" style={styles.sliderValue}>
-                {bassBoost}
-              </ThemedText>
-            </View>
-            <View style={[styles.sliderRail, { backgroundColor: surface, borderColor }]}>
-              <View style={[styles.sliderFill, { width: `${((bassBoost + 10) / 20) * 100}%`, backgroundColor: tint }]} />
-            </View>
-            <View style={styles.sliderActions}>
-              <TouchableOpacity style={[styles.sliderButton, { borderColor }]} onPress={() => setBassBoost(Math.max(-10, bassBoost - 1))}>
-                <Ionicons name="remove" size={16} color={textColor} />
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.sliderButton, { borderColor }]} onPress={() => setBassBoost(Math.min(10, bassBoost + 1))}>
-                <Ionicons name="add" size={16} color={textColor} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </SettingCard>
-
-        <SettingCard
-          icon="library"
-          title="Library"
-          description="Scan folders and manage local storage"
-        >
-          {optionRow('Music Library Scan', libraryScan ? 'Enabled' : 'Tap to scan', 'scan')}
-          {optionRow('Folder Selection', 'Choose folders', 'folder')}
-          {optionRow('Storage Management', '2.4 GB used', 'cube')}
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: tint }]}
-            onPress={() => setLibraryScan(!libraryScan)}
+          <Pressable
+            style={styles.volumeRail}
+            onLayout={(e) => setVolumeRailWidth(e.nativeEvent.layout.width)}
+            onPress={(e) => {
+              if (volumeRailWidth <= 0) return;
+              const ratio = Math.max(0, Math.min(e.nativeEvent.locationX / volumeRailWidth, 1));
+              void setVolume(ratio);
+            }}
           >
-            <Ionicons name="refresh" size={16} color="#fff" />
-            <ThemedText type="defaultSemiBold" style={styles.actionText}>
-              {libraryScan ? 'Rescan Library' : 'Scan Library'}
+            <View style={[styles.volumeFill, { width: `${volume * 100}%` }]} />
+          </Pressable>
+          <View style={styles.divider} />
+          <SettingRow
+            icon="pulse-outline"
+            label="Show visualizer"
+            right={
+              <Switch
+                value={showVisualizer}
+                onValueChange={setShowVisualizer}
+                trackColor={{ false: Spotify.card, true: Spotify.green }}
+                thumbColor={Spotify.textPrimary}
+              />
+            }
+          />
+        </Section>
+
+        <Section title="Library">
+          <SettingRow
+            icon="musical-notes"
+            label="Tracks found"
+            value={isLoading ? '...' : `${tracks.length}`}
+          />
+          <View style={styles.divider} />
+          <SettingRow
+            icon="shield-checkmark-outline"
+            label="Library access"
+            value={hasPermission ? 'Granted' : isDemo ? 'Demo mode' : 'Denied'}
+          />
+          {libraryNote ? (
+            <ThemedText style={styles.note}>{libraryNote}</ThemedText>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.primaryBtn, scanning && styles.primaryBtnDisabled]}
+            onPress={() => void handleScan()}
+            disabled={scanning || isLoading}
+          >
+            {scanning || isLoading ? (
+              <ActivityIndicator color={Spotify.black} size="small" />
+            ) : (
+              <Ionicons name="refresh" size={18} color={Spotify.black} />
+            )}
+            <ThemedText style={styles.primaryBtnText}>
+              {scanning ? 'Scanning...' : 'Scan music library'}
             </ThemedText>
           </TouchableOpacity>
-        </SettingCard>
+        </Section>
 
-        <SettingCard
-          icon="timer"
-          title="Automation"
-          description="Keep playback effortless"
-        >
-          <View style={styles.switchRow}>
-            <View>
-              <ThemedText type="defaultSemiBold">Sleep Timer</ThemedText>
-              <ThemedText type="default" style={styles.switchDescription}>
-                Fade out automatically before bed
-              </ThemedText>
-            </View>
-            <Switch value={sleepTimer} onValueChange={setSleepTimer} trackColor={{ false: '#94a3b8', true: tint }} />
+        <Section title="Sleep timer">
+          <View style={styles.chipRow}>
+            {SLEEP_OPTIONS.map((minutes) => {
+              const selected = sleepTimerMinutes === minutes;
+              const label = minutes === 0 ? 'Off' : `${minutes}m`;
+              return (
+                <TouchableOpacity
+                  key={minutes}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => setSleepTimerMinutes(minutes)}
+                >
+                  <ThemedText style={[styles.chipText, selected && styles.chipTextSelected]}>
+                    {label}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          {optionRow('Language', 'English', 'globe')}
-          {optionRow('About Application', 'Version 1.0', 'information-circle')}
-        </SettingCard>
+          {sleepTimerMinutes > 0 ? (
+            <ThemedText style={styles.note}>
+              Playback will stop in {sleepTimerMinutes} minutes.
+            </ThemedText>
+          ) : null}
+        </Section>
 
-        <ThemedView style={[styles.footerCard, { backgroundColor: surface, borderColor }]}>
-          <ThemedText type="defaultSemiBold" style={styles.footerTitle}>
-            Premium local playback
-          </ThemedText>
-          <ThemedText type="default" style={styles.footerText}>
-            Everything stays on-device for fast, private listening.
-          </ThemedText>
-        </ThemedView>
+        <Section title="About">
+          <SettingRow icon="information-circle-outline" label="App" value="MelodyLocal" />
+          <View style={styles.divider} />
+          <SettingRow icon="code-slash-outline" label="Version" value="1.0.0" />
+          <View style={styles.divider} />
+          <SettingRow
+            icon="phone-portrait-outline"
+            label="Platform"
+            value={isDemo ? 'Demo tracks' : 'Device library'}
+          />
+        </Section>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -225,188 +251,122 @@ export default function SettingsHubScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: {
+  container: {
+    flex: 1,
+    backgroundColor: Spotify.background,
+  },
+  scroll: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  ambientBand: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 190,
-    opacity: 0.1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  kicker: {
-    fontSize: 14,
-    opacity: 0.7,
+    paddingTop: 8,
   },
   heading: {
-    marginTop: 2,
+    fontSize: 28,
+    fontWeight: '800',
+    color: Spotify.textPrimary,
+    marginBottom: 20,
+    letterSpacing: -0.5,
   },
-  headerButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  section: {
+    marginBottom: 24,
   },
-  card: {
-    borderWidth: 1,
-    borderRadius: 26,
-    padding: 16,
-    marginBottom: 14,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 14,
-  },
-  iconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardText: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 17,
-  },
-  cardDescription: {
+  sectionTitle: {
     fontSize: 13,
-    opacity: 0.72,
-    marginTop: 4,
-    lineHeight: 18,
+    fontWeight: '700',
+    color: Spotify.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginLeft: 4,
   },
-  cardBody: {
-    gap: 14,
+  sectionCard: {
+    backgroundColor: Spotify.elevated,
+    borderRadius: 12,
+    padding: 14,
   },
-  switchRow: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
+    paddingVertical: 4,
   },
-  switchDescription: {
-    fontSize: 12,
-    opacity: 0.7,
-    marginTop: 4,
+  rowLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: Spotify.textPrimary,
+    fontWeight: '500',
   },
-  themeRow: {
+  rowValue: {
+    fontSize: 14,
+    color: Spotify.textSecondary,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 12,
+  },
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
+    marginTop: 10,
   },
-  themeChip: {
-    borderRadius: 999,
+  chip: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  inlinePill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
     paddingVertical: 8,
-  },
-  sliderBlock: {
-    gap: 10,
-  },
-  sliderValue: {
-    opacity: 0.7,
-  },
-  sliderRail: {
-    height: 12,
-    borderRadius: 999,
+    borderRadius: 20,
+    backgroundColor: Spotify.card,
     borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  chipSelected: {
+    backgroundColor: Spotify.green,
+    borderColor: Spotify.green,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Spotify.textPrimary,
+  },
+  chipTextSelected: {
+    color: Spotify.black,
+  },
+  volumeRail: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Spotify.card,
+    marginTop: 10,
     overflow: 'hidden',
   },
-  sliderFill: {
+  volumeFill: {
     height: '100%',
-    borderRadius: 999,
+    backgroundColor: Spotify.green,
+    borderRadius: 3,
   },
-  sliderActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  sliderButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    borderTopWidth: 1,
-    paddingTop: 14,
-  },
-  optionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  optionLabel: {
-    fontSize: 15,
-  },
-  optionValue: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  optionValueText: {
-    fontSize: 12,
-  },
-  actionButton: {
+  primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 18,
+    backgroundColor: Spotify.green,
+    borderRadius: 24,
     paddingVertical: 14,
-    marginTop: 4,
+    marginTop: 14,
   },
-  actionText: {
-    color: '#fff',
+  primaryBtnDisabled: {
+    opacity: 0.7,
   },
-  footerCard: {
-    borderWidth: 1,
-    borderRadius: 26,
-    padding: 18,
+  primaryBtnText: {
+    color: Spotify.black,
+    fontWeight: '700',
+    fontSize: 15,
   },
-  footerTitle: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  footerText: {
-    fontSize: 13,
-    opacity: 0.72,
-    lineHeight: 18,
+  note: {
+    fontSize: 12,
+    color: Spotify.textSecondary,
+    lineHeight: 17,
+    marginTop: 10,
   },
   bottomSpacer: {
-    height: 110,
+    height: TAB_BAR_HEIGHT + MINI_PLAYER_HEIGHT + 24,
   },
 });

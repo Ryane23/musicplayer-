@@ -83,19 +83,19 @@ export default function MusicHubScreen() {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.headerIcon, { backgroundColor: card }]}
-              onPress={() => router.push('/settings')}
+              onPress={() => router.push('/(tabs)/settings')}
             >
               <Ionicons name="notifications-outline" size={20} color={Spotify.textPrimary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.headerIcon, { backgroundColor: card }]}
-              onPress={() => router.push('/settings')}
+              onPress={() => router.push('/(tabs)/settings')}
             >
               <Ionicons name="time-outline" size={20} color={Spotify.textPrimary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.avatar, { backgroundColor: tint }]}
-              onPress={() => router.push('/settings')}
+              onPress={() => router.push('/(tabs)/settings')}
             >
               <Ionicons name="person" size={18} color="#000" />
             </TouchableOpacity>
