@@ -1,41 +1,56 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Spotify-inspired design tokens
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+export const Spotify = {
+  green: '#1DB954',
+  greenBright: '#1ED760',
+  black: '#000000',
+  background: '#121212',
+  elevated: '#181818',
+  card: '#282828',
+  cardHover: '#3E3E3E',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#B3B3B3',
+  textMuted: '#6A6A6A',
+  divider: '#2A2A2A',
+};
+
+const tintColorLight = Spotify.green;
+const tintColorDark = Spotify.greenBright;
 
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
+    background: '#F5F5F5',
     tint: tintColorLight,
     icon: '#687076',
     tabIconDefault: '#687076',
     tabIconSelected: tintColorLight,
+    surface: '#FFFFFF',
+    card: '#FFFFFF',
+    textSecondary: '#6B7280',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: Spotify.textPrimary,
+    background: Spotify.background,
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: Spotify.textSecondary,
+    tabIconDefault: Spotify.textSecondary,
     tabIconSelected: tintColorDark,
+    surface: Spotify.elevated,
+    card: Spotify.card,
+    textSecondary: Spotify.textSecondary,
   },
 };
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {

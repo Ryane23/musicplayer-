@@ -1,11 +1,11 @@
 import React, { useState, useEffect, Component, ReactNode } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
+import { Spotify } from '@/constants/theme';
 
 const MiniPlayerComponent = () => {
   const router = useRouter();
@@ -18,9 +18,7 @@ const MiniPlayerComponent = () => {
   } = useMusicPlayer();
   
   const tint = useThemeColor({}, 'tint');
-  const textColor = useThemeColor({}, 'text');
-  const background = useThemeColor({}, 'background');
-  const borderColor = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.1)';
+  const textSecondary = useThemeColor({}, 'textSecondary');
   
   // State for image loading and error handling
   const [imageLoading, setImageLoading] = useState(false);
@@ -72,63 +70,54 @@ const MiniPlayerComponent = () => {
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: background, borderColor }]}>
+    <View style={styles.container}>
       <View style={styles.progressContainer}>
         <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: tint }]} />
       </View>
-      
+
       <View style={styles.playerContent}>
         <TouchableOpacity style={styles.albumArtContainer} onPress={() => router.push('/now-playing')}>
           {renderAlbumArt()}
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.trackInfo} onPress={() => router.push('/now-playing')}>
           <ThemedText style={styles.trackTitle} numberOfLines={1} type="defaultSemiBold">
             {currentTrack.title || 'Unknown Title'}
           </ThemedText>
-          <ThemedText style={styles.trackArtist} numberOfLines={1} type="default">
+          <ThemedText style={[styles.trackArtist, { color: textSecondary }]} numberOfLines={1} type="default">
             {currentTrack.artist || 'Unknown Artist'}
           </ThemedText>
         </TouchableOpacity>
-        
+
         <View style={styles.controls}>
           <TouchableOpacity onPress={togglePlayPause} style={styles.playButton}>
-            <Ionicons 
-              name={isPlaying ? "pause" : "play"} 
-              size={24} 
-              color={tint} 
+            <Ionicons
+              name={isPlaying ? 'pause' : 'play'}
+              size={28}
+              color={Spotify.textPrimary}
             />
           </TouchableOpacity>
         </View>
-        
-        <TouchableOpacity style={styles.expandButton} onPress={() => router.push('/now-playing')}>
-          <Ionicons 
-            name="chevron-up" 
-            size={20} 
-            color={textColor} 
-          />
-        </TouchableOpacity>
       </View>
-    </ThemedView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 94,
-    left: 16,
-    right: 16,
+    bottom: Platform.OS === 'ios' ? 84 : 64,
+    left: 0,
+    right: 0,
     zIndex: 1000,
     elevation: 10,
-    borderWidth: 1,
-    borderRadius: 24,
+    borderTopWidth: 0,
     overflow: 'hidden',
-    boxShadow: '0px -4px 18px rgba(0, 0, 0, 0.16)', // Fixed deprecated shadow properties
+    backgroundColor: Spotify.elevated,
   },
   progressContainer: {
     height: 2,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: Spotify.card,
     width: '100%',
   },
   progressFill: {
@@ -138,12 +127,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   albumArtContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 4,
     overflow: 'hidden',
     marginRight: 12,
   },
@@ -168,20 +157,15 @@ const styles = StyleSheet.create({
   },
   trackArtist: {
     fontSize: 12,
-    opacity: 0.7,
   },
   controls: {
-    marginRight: 16,
+    marginRight: 8,
   },
   playButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  expandButton: {
-    padding: 8,
   },
 });
 
@@ -209,7 +193,7 @@ class ErrorBoundary extends Component<{children: ReactNode}, ErrorBoundaryState>
     if (this.state.hasError) {
       // Fallback UI
       return (
-        <ThemedView style={styles.container}>
+        <View style={styles.container}>
           <View style={styles.playerContent}>
             <View style={styles.albumArtPlaceholder}>
               <Ionicons name="warning" size={24} color="#FFFFFF" />
@@ -219,7 +203,7 @@ class ErrorBoundary extends Component<{children: ReactNode}, ErrorBoundaryState>
               <ThemedText style={styles.trackArtist}>Please try again</ThemedText>
             </View>
           </View>
-        </ThemedView>
+        </View>
       );
     }
 

@@ -1,13 +1,27 @@
 import * as MediaLibrary from 'expo-media-library';
 import { MusicTrack } from '../types/music';
+import { canScanDeviceLibrary } from '../utils/runtime';
 
 export class MusicLibraryService {
   /**
-   * Request permission to access media files
+   * Request permission to access media files.
+   * Returns false instead of throwing when permissions are unavailable (e.g. Expo Go on Android).
    */
   static async requestPermission(): Promise<boolean> {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    return status === 'granted';
+    if (!canScanDeviceLibrary()) {
+      return false;
+    }
+
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      return status === 'granted';
+    } catch (error) {
+      console.warn(
+        'Media library permission unavailable in this environment. Use a development build for full access.',
+        error
+      );
+      return false;
+    }
   }
 
   static async scanLocalMusic(): Promise<MusicTrack[]> {
@@ -18,40 +32,47 @@ export class MusicLibraryService {
    * Load all audio files from the device
    */
   static async getAllMusic(): Promise<MusicTrack[]> {
-    const hasPermission = await this.requestPermission();
-
-    if (!hasPermission) {
-      // Android/Expo Go may reject this permission request depending on build config.
-      // Keep app functional by returning an empty list.
+    if (!canScanDeviceLibrary()) {
       return [];
     }
 
-    let allAssets: MediaLibrary.Asset[] = [];
-    let hasNextPage = true;
-    let after: string | undefined = undefined;
+    const hasPermission = await this.requestPermission();
 
-    while (hasNextPage) {
-      const result = await MediaLibrary.getAssetsAsync({
-        mediaType: 'audio',
-        first: 100,
-        after,
-        sortBy: [['creationTime', false]],
-      });
-
-      allAssets = [...allAssets, ...result.assets];
-      hasNextPage = result.hasNextPage;
-      after = result.endCursor;
+    if (!hasPermission) {
+      return [];
     }
 
-    return allAssets.map((asset) => ({
-      id: asset.id,
-      title: asset.filename.replace(/\.[^/.]+$/, ''),
-      artist: 'Unknown Artist',
-      album: 'Unknown Album',
-      duration: asset.duration ?? 0,
-      uri: asset.uri,
-      coverUri: undefined,
-    }));
+    try {
+      let allAssets: MediaLibrary.Asset[] = [];
+      let hasNextPage = true;
+      let after: string | undefined = undefined;
+
+      while (hasNextPage) {
+        const result = await MediaLibrary.getAssetsAsync({
+          mediaType: 'audio',
+          first: 100,
+          after,
+          sortBy: [['creationTime', false]],
+        });
+
+        allAssets = [...allAssets, ...result.assets];
+        hasNextPage = result.hasNextPage;
+        after = result.endCursor;
+      }
+
+      return allAssets.map((asset) => ({
+        id: asset.id,
+        title: asset.filename.replace(/\.[^/.]+$/, ''),
+        artist: 'Unknown Artist',
+        album: 'Unknown Album',
+        duration: asset.duration ?? 0,
+        uri: asset.uri,
+        coverUri: undefined,
+      }));
+    } catch (error) {
+      console.warn('Failed to read device music library:', error);
+      return [];
+    }
   }
 
   /**

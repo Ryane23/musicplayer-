@@ -1,36 +1,39 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { useThemeColor } from '../../hooks/use-theme-color';
+import { Spotify } from '../../constants/theme';
 
 export default function TabLayout() {
   const tint = useThemeColor({}, 'tint');
   const background = useThemeColor({}, 'background');
-  
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: tint,
-        tabBarInactiveTintColor: '#8A8F98',
+        tabBarInactiveTintColor: Spotify.textSecondary,
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '700',
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: -2,
         },
         tabBarStyle: {
           position: 'absolute',
-          left: 16,
-          right: 16,
-          bottom: 14,
-          height: 72,
-          borderRadius: 28,
-          backgroundColor: background,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: Platform.OS === 'ios' ? 84 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+          paddingTop: 8,
+          backgroundColor: Spotify.black,
           borderTopWidth: 0,
-          paddingBottom: 12,
-          paddingTop: 10,
-          boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.16)', // Fixed deprecated shadow properties
-          elevation: 12,
+          elevation: 0,
         },
+        tabBarBackground: () => null,
         headerShown: false,
+        sceneStyle: { backgroundColor: background },
       }}
     >
       <Tabs.Screen
@@ -38,46 +41,36 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={26} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="music"
+        name="search"
         options={{
-          title: 'Music',
+          title: 'Search',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'musical-notes' : 'musical-notes-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'search' : 'search-outline'} size={26} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="library"
         options={{
-          title: 'Explore',
+          title: 'Your Library',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={24} color={color} />
+            <Ionicons
+              name={focused ? 'library' : 'library-outline'}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
-      <Tabs.Screen
-        name="playlists"
-        options={{
-          title: 'Playlists',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'albums' : 'albums-outline'} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={24} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="music" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="playlists" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,391 +1,225 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Image, TextInput } from 'react-native';
+import React, { useMemo } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { MusicTrack } from '@/types/music';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
-import { MusicLibraryService } from '@/services/MusicLibraryService';
+import { useLibrary } from '@/contexts/LibraryContext';
+import { Spotify } from '@/constants/theme';
+import { getGreeting } from '@/utils/format';
 
-type SectionCard = {
+const SHORTCUT_COLORS = ['#450AF5', '#8D67AB', '#E91429', '#1DB954', '#509BF5', '#F59B23'];
+
+type Shortcut = {
   id: string;
   title: string;
-  subtitle: string;
-  coverUri?: string;
   tracks: MusicTrack[];
-  accent: string;
+  coverUri?: string;
+  color: string;
 };
-
-const demoTracks: MusicTrack[] = [
-  {
-    id: 'demo-1',
-    title: 'Midnight Drive',
-    artist: 'Neon Avenue',
-    album: 'Night Pulse',
-    duration: 221000,
-    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    coverUri: 'https://placehold.co/400x400/1F2937/F8FAFC?text=MD',
-  },
-  {
-    id: 'demo-2',
-    title: 'City Lights',
-    artist: 'Blue Static',
-    album: 'Night Pulse',
-    duration: 194000,
-    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    coverUri: 'https://placehold.co/400x400/0F766E/F8FAFC?text=CL',
-  },
-  {
-    id: 'demo-3',
-    title: 'Soft Echo',
-    artist: 'Tidewave',
-    album: 'Open Space',
-    duration: 205000,
-    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    coverUri: 'https://placehold.co/400x400/7C3AED/F8FAFC?text=SE',
-  },
-  {
-    id: 'demo-4',
-    title: 'Glass Roads',
-    artist: 'Tidewave',
-    album: 'Open Space',
-    duration: 248000,
-    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    coverUri: 'https://placehold.co/400x400/EA580C/F8FAFC?text=GR',
-  },
-  {
-    id: 'demo-5',
-    title: 'Static Bloom',
-    artist: 'Afterglow',
-    album: 'Warm Signals',
-    duration: 232000,
-    uri: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
-    coverUri: 'https://placehold.co/400x400/DB2777/F8FAFC?text=SB',
-  },
-];
-
-const filterLabels = ['All', 'Songs', 'Albums', 'Artists', 'Downloaded'];
-
-function formatTime(duration: number) {
-  const totalSeconds = Math.floor(duration / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
 
 export default function MusicHubScreen() {
   const router = useRouter();
+  const background = useThemeColor({}, 'background');
+  const card = useThemeColor({}, 'card');
+  const textSecondary = useThemeColor({}, 'textSecondary');
   const tint = useThemeColor({}, 'tint');
-  const textColor = useThemeColor({}, 'text');
-  const cardColor = useThemeColor({}, 'background');
-  const borderColor = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)';
-  const surfaceColor = textColor === '#ECEDEE' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.86)';
+  const { tracks, isLoading, isDemo, libraryNote } = useLibrary();
+  const { loadTracks, playTrack } = useMusicPlayer();
 
-  const [libraryTracks, setLibraryTracks] = useState<MusicTrack[]>(demoTracks);
-  const [selectedFilter, setSelectedFilter] = useState('All');
-  const { loadTracks, playTrack, currentTrack } = useMusicPlayer();
+  const shortcuts: Shortcut[] = useMemo(() => {
+    const liked = tracks.slice(0, 8);
+    const recent = tracks.slice(0, 6);
+    const fresh = tracks.slice(2, 8);
 
-  useEffect(() => {
-    let mounted = true;
+    return [
+      { id: 'liked', title: 'Liked Songs', tracks: liked, color: '#450AF5', coverUri: tracks[0]?.coverUri },
+      { id: 'recent', title: 'Recently Played', tracks: recent, color: '#1DB954', coverUri: tracks[1]?.coverUri },
+      { id: 'fresh', title: 'Fresh Finds', tracks: fresh, color: '#E91429', coverUri: tracks[2]?.coverUri },
+      { id: 'all', title: 'Your Library', tracks, color: '#509BF5', coverUri: tracks[3]?.coverUri },
+    ];
+  }, [tracks]);
 
-    const loadLibrary = async () => {
-      try {
-        const localTracks = await MusicLibraryService.scanLocalMusic();
-        if (mounted && localTracks.length > 0) {
-          setLibraryTracks(localTracks);
-        }
-      } catch (error) {
-        console.error('Failed to scan music library:', error);
-      }
-    };
+  const madeForYou = useMemo(() => {
+    const albums = new Map<string, MusicTrack[]>();
+    tracks.forEach((track) => {
+      const key = track.album;
+      if (!albums.has(key)) albums.set(key, []);
+      albums.get(key)!.push(track);
+    });
+    return Array.from(albums.entries()).slice(0, 8).map(([album, albumTracks], index) => ({
+      id: `album-${album}`,
+      title: album,
+      subtitle: albumTracks[0]?.artist ?? 'Unknown Artist',
+      tracks: albumTracks,
+      coverUri: albumTracks[0]?.coverUri,
+      color: SHORTCUT_COLORS[index % SHORTCUT_COLORS.length],
+    }));
+  }, [tracks]);
 
-    void loadLibrary();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const tracks = libraryTracks.length > 0 ? libraryTracks : demoTracks;
-  const featuredTrack = currentTrack ?? tracks[0];
-
-  const albums = Array.from(
-    new Map(
-      tracks.map((track) => [
-        `${track.album}-${track.artist}`,
-        {
-          id: `${track.album}-${track.artist}`,
-          title: track.album,
-          subtitle: track.artist,
-          coverUri: track.coverUri,
-          tracks: tracks.filter((candidate) => candidate.album === track.album),
-          accent: tint,
-        },
-      ])
-    ).values()
-  );
-
-  const artists = Array.from(
-    new Map(
-      tracks.map((track) => [
-        track.artist,
-        {
-          id: track.artist,
-          title: track.artist,
-          subtitle: `${tracks.filter((candidate) => candidate.artist === track.artist).length} songs`,
-          coverUri: track.coverUri,
-          tracks: tracks.filter((candidate) => candidate.artist === track.artist),
-          accent: tint,
-        },
-      ])
-    ).values()
-  );
-
-  const sections: SectionCard[] = [
-    {
-      id: 'recent',
-      title: 'Recently Played',
-      subtitle: 'Resume where you left off',
-      coverUri: tracks[0]?.coverUri,
-      tracks: tracks.slice(0, 6),
-      accent: tint,
-    },
-    {
-      id: 'favorites',
-      title: 'Favorite Songs',
-      subtitle: 'Pinned to your heart',
-      coverUri: tracks[1]?.coverUri,
-      tracks: tracks.slice(1, 5),
-      accent: '#db2777',
-    },
-    {
-      id: 'added',
-      title: 'Recently Added',
-      subtitle: 'Fresh local finds',
-      coverUri: tracks[2]?.coverUri,
-      tracks: tracks.slice(0, 4),
-      accent: '#0f766e',
-    },
-  ];
-
-  const handlePlayTracks = async (playlistTracks: MusicTrack[]) => {
+  const handlePlay = async (playlistTracks: MusicTrack[]) => {
+    if (playlistTracks.length === 0) return;
     await loadTracks(playlistTracks);
     await playTrack(0);
     router.push('/now-playing');
   };
 
-  const visibleTracks = tracks.filter((track) => {
-    if (selectedFilter === 'All' || selectedFilter === 'Downloaded') {
-      return true;
-    }
-    if (selectedFilter === 'Songs') {
-      return true;
-    }
-    if (selectedFilter === 'Albums') {
-      return false;
-    }
-    if (selectedFilter === 'Artists') {
-      return false;
-    }
-    return true;
-  });
-
-  const renderTrack = ({ item }: { item: MusicTrack }) => (
-    <TouchableOpacity style={[styles.trackRow, { borderColor, backgroundColor: surfaceColor }]} onPress={() => handlePlayTracks([item])}>
-      {item.coverUri ? (
-        <Image source={{ uri: item.coverUri }} style={styles.trackArtwork} />
-      ) : (
-        <View style={[styles.trackArtwork, styles.trackArtworkFallback, { backgroundColor: tint }]} />
-      )}
-      <View style={styles.trackMeta}>
-        <ThemedText type="defaultSemiBold" style={styles.trackTitle} numberOfLines={1}>
-          {item.title}
-        </ThemedText>
-        <ThemedText type="default" style={styles.trackSubtitle} numberOfLines={1}>
-          {item.artist}
-        </ThemedText>
-      </View>
-      <View style={styles.trackRight}>
-        <ThemedText type="default" style={styles.trackDuration}>
-          {formatTime(item.duration)}
-        </ThemedText>
-        <Ionicons name="ellipsis-horizontal" size={18} color={textColor} />
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderCollectionCard = (item: SectionCard | (typeof albums)[number] | (typeof artists)[number]) => (
-    <TouchableOpacity
-      key={item.id}
-      style={[styles.collectionCard, { backgroundColor: surfaceColor, borderColor }]}
-      onPress={() => handlePlayTracks(item.tracks)}
-    >
-      <View style={[styles.collectionCover, { backgroundColor: item.accent }]}>
-        {item.coverUri ? (
-          <Image source={{ uri: item.coverUri }} style={styles.collectionImage} />
-        ) : null}
-      </View>
-      <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.collectionTitle}>
-        {item.title}
-      </ThemedText>
-      <ThemedText type="default" numberOfLines={1} style={styles.collectionSubtitle}>
-        {item.subtitle}
-      </ThemedText>
-    </TouchableOpacity>
-  );
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: cardColor }]}>
-      <View style={[styles.ambientBand, { backgroundColor: tint }]} />
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View>
-            <ThemedText type="subtitle" style={styles.kicker}>Local Library</ThemedText>
-            <ThemedText type="title" style={styles.heading}>Music</ThemedText>
+          <ThemedText style={styles.greeting}>{getGreeting()}</ThemedText>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.headerIcon, { backgroundColor: card }]}
+              onPress={() => router.push('/settings')}
+            >
+              <Ionicons name="notifications-outline" size={20} color={Spotify.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.headerIcon, { backgroundColor: card }]}
+              onPress={() => router.push('/settings')}
+            >
+              <Ionicons name="time-outline" size={20} color={Spotify.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.avatar, { backgroundColor: tint }]}
+              onPress={() => router.push('/settings')}
+            >
+              <Ionicons name="person" size={18} color="#000" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={[styles.avatarButton, { borderColor }]}>
-            <Ionicons name="person" size={18} color={textColor} />
-          </TouchableOpacity>
         </View>
 
-        <View style={[styles.searchBar, { backgroundColor: surfaceColor, borderColor }]}>
-          <Ionicons name="search" size={18} color={textColor} />
-          <TextInput
-            placeholder="Search local songs, albums, artists"
-            placeholderTextColor={textColor === '#ECEDEE' ? 'rgba(236,237,238,0.65)' : 'rgba(15,23,42,0.45)'}
-            style={[styles.searchInput, { color: textColor }]}
-          />
-          <TouchableOpacity>
-            <Ionicons name="options-outline" size={18} color={textColor} />
-          </TouchableOpacity>
+        {isLoading ? (
+          <ActivityIndicator color={tint} style={styles.loader} />
+        ) : null}
+
+        {libraryNote ? (
+          <View style={[styles.demoBanner, { backgroundColor: card }]}>
+            <Ionicons name="information-circle-outline" size={16} color={textSecondary} />
+            <ThemedText style={[styles.demoText, { color: textSecondary }]}>
+              {libraryNote}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        <View style={styles.shortcutGrid}>
+          {shortcuts.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.shortcutCard, { backgroundColor: card }]}
+              onPress={() => handlePlay(item.tracks)}
+              activeOpacity={0.8}
+            >
+              {item.coverUri ? (
+                <Image source={{ uri: item.coverUri }} style={styles.shortcutArt} />
+              ) : (
+                <View style={[styles.shortcutArt, { backgroundColor: item.color }]}>
+                  <Ionicons name="musical-notes" size={18} color="#fff" />
+                </View>
+              )}
+              <ThemedText style={styles.shortcutTitle} numberOfLines={2}>
+                {item.title}
+              </ThemedText>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {filterLabels.map((label) => {
-            const selected = selectedFilter === label;
-            return (
-              <TouchableOpacity
-                key={label}
-                onPress={() => setSelectedFilter(label)}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: selected ? tint : surfaceColor,
-                    borderColor: selected ? tint : borderColor,
-                  },
-                ]}
-              >
-                <ThemedText type="defaultSemiBold" style={{ color: selected ? '#fff' : textColor }}>
-                  {label}
-                </ThemedText>
-              </TouchableOpacity>
-            );
-          })}
+        <SectionHeader title="Made for you" />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+          {madeForYou.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.wideCard}
+              onPress={() => handlePlay(item.tracks)}
+              activeOpacity={0.85}
+            >
+              {item.coverUri ? (
+                <Image source={{ uri: item.coverUri }} style={styles.wideCardImage} />
+              ) : (
+                <View style={[styles.wideCardImage, { backgroundColor: item.color }]}>
+                  <Ionicons name="albums" size={40} color="rgba(255,255,255,0.9)" />
+                </View>
+              )}
+              <ThemedText style={styles.wideCardTitle} numberOfLines={1}>
+                {item.title}
+              </ThemedText>
+              <ThemedText style={[styles.wideCardSubtitle, { color: textSecondary }]} numberOfLines={1}>
+                {item.subtitle}
+              </ThemedText>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
 
-        {featuredTrack ? (
-          <TouchableOpacity style={[styles.featuredCard, { backgroundColor: surfaceColor, borderColor }]} onPress={() => handlePlayTracks([featuredTrack])}>
-            <View style={styles.featuredCopy}>
-              <ThemedText type="subtitle" style={styles.featuredLabel}>
-                Featured Track
-              </ThemedText>
-              <ThemedText type="title" style={styles.featuredTitle} numberOfLines={1}>
-                {featuredTrack.title}
-              </ThemedText>
-              <ThemedText type="default" style={styles.featuredArtist} numberOfLines={1}>
-                {featuredTrack.artist} · {featuredTrack.album}
-              </ThemedText>
-              <View style={styles.featuredActions}>
-                <TouchableOpacity style={[styles.featuredPlay, { backgroundColor: tint }]}>
-                  <Ionicons name="play" size={18} color="#fff" />
-                </TouchableOpacity>
-                <View style={[styles.featuredMetaPill, { borderColor }]}>
-                  <Ionicons name="pulse" size={14} color={textColor} />
-                  <ThemedText type="defaultSemiBold" style={styles.featuredMetaText}>
-                    {formatTime(featuredTrack.duration)}
-                  </ThemedText>
-                </View>
-              </View>
-            </View>
-            <View style={styles.featuredArtworkWrap}>
-              {featuredTrack.coverUri ? (
-                <Image source={{ uri: featuredTrack.coverUri }} style={styles.featuredArtwork} />
+        <SectionHeader title="Recently played" />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+          {tracks.slice(0, 10).map((track, index) => (
+            <TouchableOpacity
+              key={track.id}
+              style={styles.circleCard}
+              onPress={() => handlePlay([track])}
+              activeOpacity={0.85}
+            >
+              {track.coverUri ? (
+                <Image source={{ uri: track.coverUri }} style={styles.circleImage} />
               ) : (
-                <View style={[styles.featuredArtwork, { backgroundColor: tint }]} />
+                <View
+                  style={[
+                    styles.circleImage,
+                    { backgroundColor: SHORTCUT_COLORS[index % SHORTCUT_COLORS.length] },
+                  ]}
+                >
+                  <Ionicons name="musical-note" size={28} color="#fff" />
+                </View>
               )}
-            </View>
-          </TouchableOpacity>
-        ) : null}
+              <ThemedText style={styles.circleTitle} numberOfLines={2}>
+                {track.title}
+              </ThemedText>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle">Quick Collections</ThemedText>
-          <TouchableOpacity onPress={() => router.push('/now-playing')}>
-            <ThemedText type="link">Open Now Playing</ThemedText>
-          </TouchableOpacity>
-        </View>
-
-        <FlatList
-          horizontal
-          data={sections}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => renderCollectionCard(item)}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalRow}
-          ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
-        />
-
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle">Albums</ThemedText>
-          <ThemedText type="default" style={styles.sectionHint}>
-            {albums.length} albums
-          </ThemedText>
-        </View>
-
-        <FlatList
-          horizontal
-          data={albums}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => renderCollectionCard(item)}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalRow}
-          ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
-        />
-
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle">Artists</ThemedText>
-          <ThemedText type="default" style={styles.sectionHint}>
-            {artists.length} artists
-          </ThemedText>
-        </View>
-
-        <FlatList
-          horizontal
-          data={artists}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => renderCollectionCard(item)}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalRow}
-          ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
-        />
-
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle">Song Library</ThemedText>
-          <ThemedText type="default" style={styles.sectionHint}>
-            {visibleTracks.length} tracks
-          </ThemedText>
-        </View>
-
-        <FlatList
-          data={visibleTracks}
-          keyExtractor={(item) => item.id}
-          renderItem={renderTrack}
-          scrollEnabled={false}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        />
+        <SectionHeader title="Jump back in" />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+          {tracks.slice(0, 6).map((track, index) => (
+            <TouchableOpacity
+              key={`jump-${track.id}`}
+              style={[styles.jumpCard, { backgroundColor: card }]}
+              onPress={() => handlePlay(tracks.slice(index))}
+              activeOpacity={0.85}
+            >
+              {track.coverUri ? (
+                <Image source={{ uri: track.coverUri }} style={styles.jumpImage} />
+              ) : (
+                <View
+                  style={[
+                    styles.jumpImage,
+                    { backgroundColor: SHORTCUT_COLORS[(index + 2) % SHORTCUT_COLORS.length] },
+                  ]}
+                />
+              )}
+              <View style={styles.jumpMeta}>
+                <ThemedText style={styles.jumpTitle} numberOfLines={1}>
+                  {track.album}
+                </ThemedText>
+                <ThemedText style={[styles.jumpArtist, { color: textSecondary }]} numberOfLines={1}>
+                  {track.artist}
+                </ThemedText>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -393,196 +227,156 @@ export default function MusicHubScreen() {
   );
 }
 
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  ambientBand: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 190,
-    opacity: 0.1,
-  },
+  scroll: { paddingHorizontal: 16, paddingTop: 8 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 18,
+    marginBottom: 20,
   },
-  kicker: {
-    fontSize: 14,
-    opacity: 0.7,
+  greeting: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
-  heading: {
-    marginTop: 2,
-  },
-  avatarButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchBar: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 22,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  },
+  headerIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loader: { marginBottom: 16 },
+  demoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
     marginBottom: 16,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    paddingVertical: 0,
-  },
-  filterRow: {
-    paddingBottom: 16,
-  },
-  filterChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginRight: 10,
-  },
-  featuredCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    padding: 18,
+  demoText: { flex: 1, fontSize: 12, lineHeight: 16 },
+  shortcutGrid: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 22,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 24,
   },
-  featuredCopy: {
-    flex: 1,
-  },
-  featuredLabel: {
-    fontSize: 13,
-    opacity: 0.7,
-    marginBottom: 6,
-  },
-  featuredTitle: {
-    marginBottom: 8,
-  },
-  featuredArtist: {
-    opacity: 0.75,
-  },
-  featuredActions: {
+  shortcutCard: {
+    width: '48.5%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 16,
-  },
-  featuredPlay: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featuredMetaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  featuredMetaText: {
-    fontSize: 13,
-  },
-  featuredArtworkWrap: {
-    width: 132,
-    justifyContent: 'center',
-  },
-  featuredArtwork: {
-    width: 132,
-    height: 132,
-    borderRadius: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  sectionHint: {
-    opacity: 0.65,
-  },
-  horizontalRow: {
-    paddingBottom: 16,
-  },
-  collectionCard: {
-    width: 164,
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 12,
-  },
-  collectionCover: {
-    borderRadius: 20,
-    height: 140,
-    marginBottom: 12,
+    borderRadius: 4,
     overflow: 'hidden',
+    minHeight: 56,
   },
-  collectionImage: {
-    width: '100%',
-    height: '100%',
-  },
-  collectionTitle: {
-    fontSize: 16,
-  },
-  collectionSubtitle: {
-    fontSize: 13,
-    opacity: 0.7,
-    marginTop: 3,
-  },
-  trackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 12,
-  },
-  trackArtwork: {
+  shortcutArt: {
     width: 56,
     height: 56,
-    borderRadius: 16,
-  },
-  trackArtworkFallback: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trackMeta: {
+  shortcutTitle: {
     flex: 1,
-  },
-  trackTitle: {
-    fontSize: 16,
-  },
-  trackSubtitle: {
     fontSize: 13,
-    opacity: 0.7,
+    fontWeight: '700',
+    paddingHorizontal: 10,
+    lineHeight: 16,
+  },
+  sectionHeader: {
+    marginBottom: 14,
     marginTop: 4,
   },
-  trackRight: {
-    alignItems: 'flex-end',
-    gap: 8,
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
-  trackDuration: {
+  row: {
+    gap: 16,
+    paddingBottom: 28,
+  },
+  wideCard: {
+    width: 148,
+  },
+  wideCardImage: {
+    width: 148,
+    height: 148,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  wideCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  wideCardSubtitle: {
     fontSize: 12,
-    opacity: 0.7,
   },
-  bottomSpacer: {
-    height: 110,
+  circleCard: {
+    width: 104,
+    alignItems: 'flex-start',
   },
+  circleImage: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  circleTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  jumpCard: {
+    width: 280,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  jumpImage: {
+    width: 72,
+    height: 72,
+  },
+  jumpMeta: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  jumpTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  jumpArtist: {
+    fontSize: 13,
+  },
+  bottomSpacer: { height: 140 },
 });

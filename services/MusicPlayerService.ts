@@ -1,19 +1,27 @@
-import { Audio } from 'expo-av';
+import { Audio, AVPlaybackStatus } from 'expo-av';
 import { MusicTrack } from '../types/music';
 
 class MusicPlayerService {
-  // Best-effort: helps keep state correct even when playback status callbacks lag behind UI actions.
-  private setPlaybackIsPlayingFromSound = (status: any) => {
-    if (status?.isLoaded) {
-      // expo-av uses `status.isPlaying` to represent play state
-      this.isPlaying = !!status.isPlaying;
-    }
-  };
-
   private soundObject: Audio.Sound | null = null;
   private tracks: MusicTrack[] = [];
   private currentTrackIndex: number = -1;
   private isPlaying: boolean = false;
+  private positionMillis: number = 0;
+  private durationMillis: number = 0;
+
+  private handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (!status.isLoaded) {
+      return;
+    }
+
+    this.isPlaying = status.isPlaying;
+    this.positionMillis = status.positionMillis ?? 0;
+    this.durationMillis = status.durationMillis ?? 0;
+
+    if (status.didJustFinish && !status.isLooping) {
+      void this.playNext();
+    }
+  };
 
   async loadTracks(tracks: MusicTrack[]) {
     this.tracks = tracks;
@@ -41,8 +49,15 @@ class MusicPlayerService {
           throw new Error('Missing track.uri');
         }
 
+        const source =
+          track.uri.startsWith('file://') ||
+          track.uri.startsWith('content://') ||
+          track.uri.startsWith('http')
+            ? { uri: track.uri }
+            : { uri: track.uri };
+
         const { sound } = await Audio.Sound.createAsync(
-          { uri: track.uri },
+          source,
           { shouldPlay: true },
           this.handlePlaybackStatusUpdate
         );
@@ -128,6 +143,18 @@ class MusicPlayerService {
 
   getCurrentTrackIndex(): number {
     return this.currentTrackIndex;
+  }
+
+  getIsPlaying(): boolean {
+    return this.isPlaying;
+  }
+
+  getPlaybackPosition(): number {
+    return this.positionMillis;
+  }
+
+  getDuration(): number {
+    return this.durationMillis;
   }
 
   async playNext() {

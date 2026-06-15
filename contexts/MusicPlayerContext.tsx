@@ -61,10 +61,7 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
           updateCurrentTrack();
         }
 
-        // Best-effort: sync isPlaying from service via action outcomes / status updates.
-        // (service maintains this internally and the UI already derives many UI states from it)
-        // We don't have a public getter, so we keep isPlaying optimistic in action handlers.
-        // Keeping this block here prevents stale UI changes when tracks advance automatically.
+        setIsPlaying(musicPlayerService.getIsPlaying());
       } catch (error) {
         console.error('Error updating playback status:', error);
       }
@@ -102,8 +99,7 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
   const togglePlayPause = async () => {
     try {
       await musicPlayerService.togglePlayPause();
-      // We'll update the isPlaying state through the interval effect instead
-      // to ensure consistency with the actual playback state
+      setIsPlaying(musicPlayerService.getIsPlaying());
     } catch (error) {
       console.error('Error toggling play/pause:', error);
     }
