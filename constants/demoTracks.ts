@@ -9,7 +9,7 @@ const DEMO_TRACK_TEMPLATES: Omit<MusicTrack, 'uri'>[] = [
     title: 'Midnight Drive',
     artist: 'Neon Avenue',
     album: 'Night Pulse',
-    duration: 221000,
+    duration: 3000,
     coverUri: 'https://placehold.co/400x400/1DB954/FFFFFF?text=MD',
   },
   {
@@ -17,7 +17,7 @@ const DEMO_TRACK_TEMPLATES: Omit<MusicTrack, 'uri'>[] = [
     title: 'City Lights',
     artist: 'Blue Static',
     album: 'Night Pulse',
-    duration: 194000,
+    duration: 3000,
     coverUri: 'https://placehold.co/400x400/1ED760/FFFFFF?text=CL',
   },
   {
@@ -25,7 +25,7 @@ const DEMO_TRACK_TEMPLATES: Omit<MusicTrack, 'uri'>[] = [
     title: 'Soft Echo',
     artist: 'Tidewave',
     album: 'Open Space',
-    duration: 205000,
+    duration: 3000,
     coverUri: 'https://placehold.co/400x400/509BF5/FFFFFF?text=SE',
   },
   {
@@ -33,7 +33,7 @@ const DEMO_TRACK_TEMPLATES: Omit<MusicTrack, 'uri'>[] = [
     title: 'Glass Roads',
     artist: 'Tidewave',
     album: 'Open Space',
-    duration: 248000,
+    duration: 3000,
     coverUri: 'https://placehold.co/400x400/E91429/FFFFFF?text=GR',
   },
   {
@@ -41,7 +41,7 @@ const DEMO_TRACK_TEMPLATES: Omit<MusicTrack, 'uri'>[] = [
     title: 'Static Bloom',
     artist: 'Afterglow',
     album: 'Warm Signals',
-    duration: 232000,
+    duration: 3000,
     coverUri: 'https://placehold.co/400x400/8D67AB/FFFFFF?text=SB',
   },
   {
@@ -49,7 +49,7 @@ const DEMO_TRACK_TEMPLATES: Omit<MusicTrack, 'uri'>[] = [
     title: 'Low Tide',
     artist: 'Afterglow',
     album: 'Warm Signals',
-    duration: 198000,
+    duration: 3000,
     coverUri: 'https://placehold.co/400x400/F59B23/FFFFFF?text=LT',
   },
 ];

@@ -1,121 +1,183 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColor } from '@/hooks/use-theme-color';
-import { ThemedText } from '@/components/themed-text';
-import { Ionicons } from '@expo/vector-icons';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import MusicLogo from '@/components/MusicLogo';
+import EqualizerBars from '@/components/EqualizerBars';
+import { Spotify } from '@/constants/theme';
+import { USE_NATIVE_DRIVER } from '@/utils/animation';
 
-const SplashScreen = () => {
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+export default function SplashRoute() {
   const router = useRouter();
-  const tint = useThemeColor({}, 'tint');
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const screenOpacity = useRef(new Animated.Value(1)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const titleY = useRef(new Animated.Value(24)).current;
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const barsOpacity = useRef(new Animated.Value(0)).current;
+  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Animate the splash screen elements
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
+    let mounted = true;
+
+    const run = async () => {
+      await SplashScreen.hideAsync().catch(() => {});
+
+      Animated.sequence([
+        Animated.delay(400),
+        Animated.parallel([
+          Animated.timing(titleOpacity, {
+            toValue: 1,
+            duration: 700,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+          Animated.spring(titleY, {
+            toValue: 0,
+            friction: 8,
+            tension: 70,
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+          Animated.timing(barsOpacity, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+        ]),
+        Animated.timing(taglineOpacity, {
           toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
+          duration: 500,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
-        Animated.spring(scaleAnim, {
-          toValue: 1.2,
-          friction: 5,
-          tension: 50,
-          useNativeDriver: true,
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 1800,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
         }),
-      ]),
-      Animated.delay(2000), // Hold for 2 seconds
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // Navigate to the main app after animation completes
-      router.replace('/(tabs)');
-    });
-  }, [fadeAnim, router, scaleAnim]);
+        Animated.delay(300),
+        Animated.timing(screenOpacity, {
+          toValue: 0,
+          duration: 450,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+      ]).start(({ finished }) => {
+        if (finished && mounted) {
+          router.replace('/(tabs)');
+        }
+      });
+    };
+
+    void run();
+
+    return () => {
+      mounted = false;
+    };
+  }, [barsOpacity, progress, router, screenOpacity, taglineOpacity, titleOpacity, titleY]);
+
+  const progressWidth = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Animated.View 
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          }
-        ]}
-      >
-        <View style={styles.logoContainer}>
-          <Ionicons name="musical-notes" size={80} color={tint} />
-          <ThemedText style={styles.appName} type="defaultSemiBold">MelodyLocal</ThemedText>
-          <ThemedText style={styles.tagline} type="default">Premium music experience</ThemedText>
+    <Animated.View style={[styles.container, { opacity: screenOpacity }]}>
+      <View style={styles.glowTop} />
+      <View style={styles.glowBottom} />
+
+      <View style={styles.content}>
+        <MusicLogo size={132} animated />
+
+        <Animated.View
+          style={{
+            opacity: titleOpacity,
+            transform: [{ translateY: titleY }],
+          }}
+        >
+          <Animated.Text style={styles.appName}>MelodyLocal</Animated.Text>
+        </Animated.View>
+
+        <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
+          Your music. Your library.
+        </Animated.Text>
+
+        <Animated.View style={[styles.barsWrap, { opacity: barsOpacity }]}>
+          <EqualizerBars />
+        </Animated.View>
+      </View>
+
+      <View style={styles.footer}>
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
         </View>
-        
-        <View style={styles.waveContainer}>
-          {[...Array(5)].map((_, i) => (
-            <Animated.View
-              key={i}
-              style={[
-                styles.wave,
-                {
-                  height: 10 + i * 5,
-                  width: 20 + i * 10,
-                  marginLeft: i * 15,
-                  backgroundColor: tint,
-                  opacity: 0.7 - i * 0.1,
-                }
-              ]}
-            />
-          ))}
-        </View>
-      </Animated.View>
-    </SafeAreaView>
+      </View>
+    </Animated.View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: Spotify.black,
+  },
+  glowTop: {
+    position: 'absolute',
+    top: -80,
+    left: '20%',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: Spotify.green,
+    opacity: 0.12,
+  },
+  glowBottom: {
+    position: 'absolute',
+    bottom: -120,
+    right: -40,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: Spotify.greenBright,
+    opacity: 0.08,
   },
   content: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
+    paddingHorizontal: 32,
   },
   appName: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginTop: 16,
+    marginTop: 28,
+    fontSize: 34,
+    fontWeight: '800',
+    color: Spotify.textPrimary,
+    letterSpacing: -0.8,
     textAlign: 'center',
   },
   tagline: {
-    fontSize: 16,
-    opacity: 0.7,
-    marginTop: 8,
+    marginTop: 10,
+    fontSize: 15,
+    color: Spotify.textSecondary,
     textAlign: 'center',
   },
-  waveContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
+  barsWrap: {
+    marginTop: 36,
   },
-  wave: {
-    borderRadius: 5,
-    marginHorizontal: 2,
+  footer: {
+    paddingHorizontal: 40,
+    paddingBottom: 48,
+  },
+  progressTrack: {
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: Spotify.card,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: Spotify.green,
   },
 });
-
-export default SplashScreen;

@@ -1,46 +1,50 @@
 import React, { useState, useEffect, Component, ReactNode } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { useRouter, useSegments } from 'expo-router';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Spotify } from '@/constants/theme';
+import { TAB_BAR_HEIGHT, MINI_PLAYER_HEIGHT } from '@/utils/animation';
+
+const HIDDEN_SEGMENTS = new Set(['splash', 'now-playing', 'welcome']);
 
 const MiniPlayerComponent = () => {
   const router = useRouter();
-  const { 
-    currentTrack, 
-    isPlaying, 
-    position, 
-    duration, 
-    togglePlayPause, 
+  const segments = useSegments();
+  const {
+    currentTrack,
+    isPlaying,
+    position,
+    duration,
+    togglePlayPause,
   } = useMusicPlayer();
-  
+
   const tint = useThemeColor({}, 'tint');
   const textSecondary = useThemeColor({}, 'textSecondary');
-  
-  // State for image loading and error handling
+
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
-  
-  // Reset error state when currentTrack changes
+
+  const isOnTabScreen = segments[0] === '(tabs)';
+  const isHiddenRoute = segments.some((segment) => HIDDEN_SEGMENTS.has(segment));
+
   useEffect(() => {
     setImageError(false);
   }, [currentTrack]);
-  
-  const progress = duration > 0 ? (position / duration) * 100 : 0;
 
-  // Handle missing or invalid track data
-  if (!currentTrack || !currentTrack.title || !currentTrack.artist) {
-    return null; // Don't render if essential track info is missing
+  if (isHiddenRoute || !isOnTabScreen || !currentTrack?.title || !currentTrack?.artist) {
+    return null;
   }
-  
-  // Handle invalid image
+
+  const trackDuration = duration > 0 ? duration : currentTrack.duration;
+  const progress = trackDuration > 0 ? Math.min((position / trackDuration) * 100, 100) : 0;
+
   const handleImageError = () => {
     setImageError(true);
   };
-  
+
   const renderAlbumArt = () => {
     if (imageError) {
       return (
@@ -49,7 +53,7 @@ const MiniPlayerComponent = () => {
         </View>
       );
     }
-    
+
     if (imageLoading || !currentTrack.coverUri) {
       return (
         <View style={styles.albumArtPlaceholder}>
@@ -57,10 +61,10 @@ const MiniPlayerComponent = () => {
         </View>
       );
     }
-    
+
     return (
-      <Image 
-        source={{ uri: currentTrack.coverUri }} 
+      <Image
+        source={{ uri: currentTrack.coverUri }}
         style={styles.albumArt}
         onError={handleImageError}
         onLoadStart={() => setImageLoading(true)}
@@ -70,7 +74,7 @@ const MiniPlayerComponent = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { bottom: TAB_BAR_HEIGHT }]}>
       <View style={styles.progressContainer}>
         <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: tint }]} />
       </View>
@@ -82,10 +86,10 @@ const MiniPlayerComponent = () => {
 
         <TouchableOpacity style={styles.trackInfo} onPress={() => router.push('/now-playing')}>
           <ThemedText style={styles.trackTitle} numberOfLines={1} type="defaultSemiBold">
-            {currentTrack.title || 'Unknown Title'}
+            {currentTrack.title}
           </ThemedText>
           <ThemedText style={[styles.trackArtist, { color: textSecondary }]} numberOfLines={1} type="default">
-            {currentTrack.artist || 'Unknown Artist'}
+            {currentTrack.artist}
           </ThemedText>
         </TouchableOpacity>
 
@@ -106,14 +110,15 @@ const MiniPlayerComponent = () => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 84 : 64,
     left: 0,
     right: 0,
+    height: MINI_PLAYER_HEIGHT,
     zIndex: 1000,
     elevation: 10,
-    borderTopWidth: 0,
     overflow: 'hidden',
     backgroundColor: Spotify.elevated,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   progressContainer: {
     height: 2,
@@ -124,6 +129,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   playerContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -169,42 +175,27 @@ const styles = StyleSheet.create({
   },
 });
 
-// Error boundary component to handle JavaScript errors
 interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends Component<{children: ReactNode}, ErrorBoundaryState> {
-  constructor(props: {children: ReactNode}) {
+class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(_error: any): ErrorBoundaryState {
+  static getDerivedStateFromError(_error: unknown): ErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error: any, errorInfo: any) {
-    // Log error to an error reporting service
-    console.error("MiniPlayer error:", error, errorInfo);
+  componentDidCatch(error: unknown, errorInfo: unknown) {
+    console.error('MiniPlayer error:', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
-      // Fallback UI
-      return (
-        <View style={styles.container}>
-          <View style={styles.playerContent}>
-            <View style={styles.albumArtPlaceholder}>
-              <Ionicons name="warning" size={24} color="#FFFFFF" />
-            </View>
-            <View style={styles.trackInfo}>
-              <ThemedText style={styles.trackTitle}>Error loading track</ThemedText>
-              <ThemedText style={styles.trackArtist}>Please try again</ThemedText>
-            </View>
-          </View>
-        </View>
-      );
+      return null;
     }
 
     return this.props.children;

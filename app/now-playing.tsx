@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import AudioVisualizer from '@/components/AudioVisualizer';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { MusicTrack } from '@/types/music';
+import { USE_NATIVE_DRIVER } from '@/utils/animation';
 
 const fallbackTrack: MusicTrack = {
   id: 'preview',
@@ -44,9 +45,11 @@ export default function NowPlayingScreen() {
     togglePlayPause,
     playNext,
     playPrevious,
+    seekTo,
   } = useMusicPlayer();
 
   const [showLyrics, setShowLyrics] = useState(false);
+  const [railWidth, setRailWidth] = useState(0);
   const [showQueue, setShowQueue] = useState(false);
   const [showVisualizer, setShowVisualizer] = useState(true);
   const [favorite, setFavorite] = useState(false);
@@ -65,12 +68,12 @@ export default function NowPlayingScreen() {
         Animated.timing(pulse, {
           toValue: 1,
           duration: 2600,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(pulse, {
           toValue: 0,
           duration: 2600,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ])
     );
@@ -138,9 +141,17 @@ export default function NowPlayingScreen() {
               {formatTime(trackDuration)}
             </ThemedText>
           </View>
-          <View style={[styles.progressRail, { backgroundColor: borderColor }]}>
+          <Pressable
+            style={[styles.progressRail, { backgroundColor: borderColor }]}
+            onLayout={(event) => setRailWidth(event.nativeEvent.layout.width)}
+            onPress={(event) => {
+              if (railWidth <= 0) return;
+              const ratio = Math.max(0, Math.min(event.nativeEvent.locationX / railWidth, 1));
+              void seekTo(ratio * trackDuration);
+            }}
+          >
             <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: tint }]} />
-          </View>
+          </Pressable>
         </View>
 
         <View style={styles.controls}>

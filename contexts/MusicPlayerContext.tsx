@@ -1,4 +1,5 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { musicPlayerService } from '../services/MusicPlayerService';
 import { MusicTrack } from '../types/music';
 
@@ -17,7 +18,7 @@ interface MusicPlayerContextType {
   seekTo: (position: number) => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   loadTracks: (tracks: MusicTrack[]) => Promise<void>;
-  cleanup: () => Promise<void>; // Added cleanup method
+  cleanup: () => Promise<void>;
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextType | undefined>(undefined);
@@ -35,53 +36,33 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [tracks, setTracks] = useState<MusicTrack[]>([]);
 
-  // Initialize the music player service
   useEffect(() => {
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-    let lastIndex = currentIndex;
+    const unsubscribe = musicPlayerService.subscribePlaybackState((state) => {
+      setPosition(state.position);
+      setDuration(state.duration);
+      setIsPlaying(state.isPlaying);
+    });
 
-    // Update current track when it changes
-    const updateCurrentTrack = () => {
+    const pollMs = Platform.OS === 'web' ? 250 : 500;
+    const intervalId = setInterval(() => {
+      void musicPlayerService.syncPlaybackState();
       const track = musicPlayerService.getCurrentTrack();
       setCurrentTrack(track);
       setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
-    };
+    }, pollMs);
 
-    // Subscribe to playback updates
-    intervalId = setInterval(async () => {
-      try {
-        const pos = await musicPlayerService.getPlaybackPosition();
-        const dur = await musicPlayerService.getDuration();
-        setPosition(pos);
-        setDuration(dur);
-        
-        const currentTrackIndex = musicPlayerService.getCurrentTrackIndex();
-        if (currentTrackIndex !== lastIndex) {
-          lastIndex = currentTrackIndex;
-          updateCurrentTrack();
-        }
+    setCurrentTrack(musicPlayerService.getCurrentTrack());
+    setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
 
-        setIsPlaying(musicPlayerService.getIsPlaying());
-      } catch (error) {
-        console.error('Error updating playback status:', error);
-      }
-    }, 1000);
-
-    // Initial update
-    updateCurrentTrack();
-    
-    // Cleanup function
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      unsubscribe();
+      clearInterval(intervalId);
     };
-  }, [currentIndex]);
+  }, []);
 
-  // Cleanup when the provider unmounts
   useEffect(() => {
     return () => {
-      musicPlayerService.cleanup().catch(error => {
+      musicPlayerService.cleanup().catch((error) => {
         console.warn('Error during music player cleanup:', error);
       });
     };
@@ -90,7 +71,9 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
   const playTrack = async (index: number) => {
     try {
       await musicPlayerService.playTrack(index);
-      setIsPlaying(true);
+      setCurrentTrack(musicPlayerService.getCurrentTrack());
+      setCurrentIndex(index);
+      setIsPlaying(musicPlayerService.getIsPlaying());
     } catch (error) {
       console.error('Error playing track:', error);
     }
@@ -108,7 +91,9 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
   const playNext = async () => {
     try {
       await musicPlayerService.playNext();
-      setIsPlaying(true);
+      setCurrentTrack(musicPlayerService.getCurrentTrack());
+      setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
+      setIsPlaying(musicPlayerService.getIsPlaying());
     } catch (error) {
       console.error('Error playing next track:', error);
     }
@@ -117,16 +102,18 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
   const playPrevious = async () => {
     try {
       await musicPlayerService.playPrevious();
-      setIsPlaying(true);
+      setCurrentTrack(musicPlayerService.getCurrentTrack());
+      setCurrentIndex(musicPlayerService.getCurrentTrackIndex());
+      setIsPlaying(musicPlayerService.getIsPlaying());
     } catch (error) {
       console.error('Error playing previous track:', error);
     }
   };
 
-  const seekTo = async (position: number) => {
+  const seekTo = async (seekPosition: number) => {
     try {
-      await musicPlayerService.seekTo(position);
-      // Position will be updated by the interval effect
+      await musicPlayerService.seekTo(seekPosition);
+      setPosition(seekPosition);
     } catch (error) {
       console.error('Error seeking to position:', error);
     }
@@ -175,7 +162,7 @@ export const MusicPlayerProvider: React.FC<MusicPlayerProviderProps> = ({ childr
     seekTo,
     setVolume: setVolumeAsync,
     loadTracks,
-    cleanup, // Added cleanup method
+    cleanup,
   };
 
   return (

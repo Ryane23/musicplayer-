@@ -18,6 +18,7 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { useLibrary } from '@/contexts/LibraryContext';
 import { Spotify } from '@/constants/theme';
 import { formatDuration } from '@/utils/format';
+import { TAB_BAR_HEIGHT, MINI_PLAYER_HEIGHT } from '@/utils/animation';
 
 type LibraryFilter = 'Playlists' | 'Artists' | 'Albums' | 'Songs';
 
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
   loader: { marginTop: 32 },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 140,
+    paddingBottom: TAB_BAR_HEIGHT + MINI_PLAYER_HEIGHT + 16,
   },
   listRow: {
     flexDirection: 'row',
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   listSubtitle: { fontSize: 13 },
   gridContent: {
     paddingHorizontal: 12,
-    paddingBottom: 140,
+    paddingBottom: TAB_BAR_HEIGHT + MINI_PLAYER_HEIGHT + 16,
   },
   gridRow: {
     gap: 12,

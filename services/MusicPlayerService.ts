@@ -1,5 +1,12 @@
 import { Audio, AVPlaybackStatus } from 'expo-av';
+import { Platform } from 'react-native';
 import { MusicTrack } from '../types/music';
+
+type PlaybackListener = (state: {
+  position: number;
+  duration: number;
+  isPlaying: boolean;
+}) => void;
 
 class MusicPlayerService {
   private soundObject: Audio.Sound | null = null;
@@ -8,20 +15,98 @@ class MusicPlayerService {
   private isPlaying: boolean = false;
   private positionMillis: number = 0;
   private durationMillis: number = 0;
+  private listeners = new Set<PlaybackListener>();
+  private audioModeReady = false;
+
+  private notifyListeners() {
+    const snapshot = {
+      position: this.positionMillis,
+      duration: this.durationMillis,
+      isPlaying: this.isPlaying,
+    };
+    this.listeners.forEach((listener) => listener(snapshot));
+  }
 
   private handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
+    if (!this.soundObject || !status.isLoaded) {
       return;
     }
 
     this.isPlaying = status.isPlaying;
     this.positionMillis = status.positionMillis ?? 0;
     this.durationMillis = status.durationMillis ?? 0;
+    this.notifyListeners();
 
     if (status.didJustFinish && !status.isLooping) {
       void this.playNext();
     }
   };
+
+  private async ensureAudioMode() {
+    if (this.audioModeReady) {
+      return;
+    }
+
+    try {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+      this.audioModeReady = true;
+    } catch (error) {
+      console.warn('Failed to set audio mode:', error);
+    }
+  }
+
+  private async unloadSound() {
+    const sound = this.soundObject;
+    this.soundObject = null;
+
+    if (!sound) {
+      return;
+    }
+
+    try {
+      await sound.setOnPlaybackStatusUpdate(null);
+      await sound.stopAsync();
+      await sound.unloadAsync();
+    } catch (error) {
+      console.warn('Error unloading sound:', error);
+    }
+  }
+
+  subscribePlaybackState(listener: PlaybackListener) {
+    this.listeners.add(listener);
+    listener({
+      position: this.positionMillis,
+      duration: this.durationMillis,
+      isPlaying: this.isPlaying,
+    });
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  async syncPlaybackState() {
+    if (!this.soundObject) {
+      return;
+    }
+
+    try {
+      const status = await this.soundObject.getStatusAsync();
+      if (!status.isLoaded || !this.soundObject) {
+        return;
+      }
+
+      this.isPlaying = status.isPlaying;
+      this.positionMillis = status.positionMillis ?? 0;
+      this.durationMillis = status.durationMillis ?? 0;
+      this.notifyListeners();
+    } catch {
+      // Sound may have been unloaded between calls (common on web).
+    }
+  }
 
   async loadTracks(tracks: MusicTrack[]) {
     this.tracks = tracks;
@@ -31,65 +116,61 @@ class MusicPlayerService {
   }
 
   async playTrack(index: number) {
-    if (index >= 0 && index < this.tracks.length) {
-      // Unload current sound if exists
-      if (this.soundObject) {
-        try {
-          await this.soundObject.unloadAsync();
-        } catch (error) {
-          console.warn('Error unloading previous sound:', error);
-        }
+    if (index < 0 || index >= this.tracks.length) {
+      return;
+    }
+
+    await this.ensureAudioMode();
+    await this.unloadSound();
+
+    this.currentTrackIndex = index;
+    const track = this.tracks[index];
+
+    try {
+      if (!track.uri) {
+        throw new Error('Missing track.uri');
       }
-      
-      this.currentTrackIndex = index;
-      const track = this.tracks[index];
 
-      try {
-        if (!track.uri) {
-          throw new Error('Missing track.uri');
-        }
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: track.uri },
+        {
+          shouldPlay: true,
+          progressUpdateIntervalMillis: Platform.OS === 'web' ? 250 : 500,
+        },
+        this.handlePlaybackStatusUpdate
+      );
 
-        const source =
-          track.uri.startsWith('file://') ||
-          track.uri.startsWith('content://') ||
-          track.uri.startsWith('http')
-            ? { uri: track.uri }
-            : { uri: track.uri };
+      this.soundObject = sound;
+      this.isPlaying = true;
 
-        const { sound } = await Audio.Sound.createAsync(
-          source,
-          { shouldPlay: true },
-          this.handlePlaybackStatusUpdate
-        );
-        this.soundObject = sound;
-        this.isPlaying = true;
-      } catch (error) {
-        console.error('Error creating sound object (track uri may be invalid):', {
-          error,
-          trackUri: track.uri,
-          trackId: track.id,
-          trackTitle: track.title,
-        });
-        // Ensure we don’t leave the service in a half-initialized state
-        if (this.soundObject) {
-          try {
-            await this.soundObject.unloadAsync();
-          } catch {
-            // ignore
-          }
-        }
-        this.soundObject = null;
-        this.isPlaying = false;
+      const status = await sound.getStatusAsync();
+      if (status.isLoaded) {
+        this.positionMillis = status.positionMillis ?? 0;
+        this.durationMillis =
+          status.durationMillis && status.durationMillis > 0
+            ? status.durationMillis
+            : track.duration;
+        this.notifyListeners();
       }
+    } catch (error) {
+      console.error('Error creating sound object (track uri may be invalid):', {
+        error,
+        trackUri: track.uri,
+        trackId: track.id,
+        trackTitle: track.title,
+      });
+      this.soundObject = null;
+      this.isPlaying = false;
+      this.positionMillis = 0;
+      this.durationMillis = track.duration ?? 0;
+      this.notifyListeners();
     }
   }
 
   async togglePlayPause() {
     if (!this.soundObject) {
-      // If no sound is loaded but we have a current track, try to play it
       if (this.currentTrackIndex >= 0 && this.currentTrackIndex < this.tracks.length) {
         await this.playTrack(this.currentTrackIndex);
-        return;
       }
       return;
     }
@@ -102,31 +183,30 @@ class MusicPlayerService {
         await this.soundObject.playAsync();
         this.isPlaying = true;
       }
+      this.notifyListeners();
     } catch (error) {
       console.error('Error toggling play/pause:', error);
     }
   }
 
   async stop() {
-    if (this.soundObject) {
-      try {
-        await this.soundObject.stopAsync();
-        await this.soundObject.unloadAsync();
-      } catch (error) {
-        console.warn('Error stopping/unloading sound:', error);
-      }
-      this.soundObject = null;
-      this.isPlaying = false;
-    }
+    await this.unloadSound();
+    this.isPlaying = false;
+    this.positionMillis = 0;
+    this.notifyListeners();
   }
 
   async seekTo(position: number) {
-    if (this.soundObject) {
-      try {
-        await this.soundObject.setPositionAsync(position);
-      } catch (error) {
-        console.error('Error seeking to position:', error);
-      }
+    if (!this.soundObject) {
+      return;
+    }
+
+    try {
+      await this.soundObject.setPositionAsync(position);
+      this.positionMillis = position;
+      this.notifyListeners();
+    } catch (error) {
+      console.error('Error seeking to position:', error);
     }
   }
 
@@ -162,7 +242,7 @@ class MusicPlayerService {
 
     let nextIndex = this.currentTrackIndex + 1;
     if (nextIndex >= this.tracks.length) {
-      nextIndex = 0; // Loop back to first track
+      nextIndex = 0;
     }
 
     await this.playTrack(nextIndex);
@@ -173,42 +253,30 @@ class MusicPlayerService {
 
     let prevIndex = this.currentTrackIndex - 1;
     if (prevIndex < 0) {
-      prevIndex = this.tracks.length - 1; // Go to last track
+      prevIndex = this.tracks.length - 1;
     }
 
     await this.playTrack(prevIndex);
   }
 
   async setVolume(volume: number) {
-    if (this.soundObject) {
-      try {
-        await this.soundObject.setVolumeAsync(volume);
-      } catch (error) {
-        console.error('Error setting volume:', error);
-      }
+    if (!this.soundObject) {
+      return;
+    }
+
+    try {
+      await this.soundObject.setVolumeAsync(volume);
+    } catch (error) {
+      console.error('Error setting volume:', error);
     }
   }
 
-  subscribeToPlaybackUpdates(listener: (position: number, duration: number) => void) {
-    if (this.soundObject) {
-      this.soundObject.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded) {
-          listener(status.positionMillis || 0, status.durationMillis || 0);
-        }
-      });
-    }
-  }
-
-  // Clean up resources
   async cleanup() {
-    if (this.soundObject) {
-      try {
-        await this.soundObject.unloadAsync();
-      } catch (error) {
-        console.warn('Error during cleanup:', error);
-      }
-      this.soundObject = null;
-    }
+    await this.unloadSound();
+    this.isPlaying = false;
+    this.positionMillis = 0;
+    this.durationMillis = 0;
+    this.notifyListeners();
   }
 }
 

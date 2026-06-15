@@ -20,6 +20,7 @@ import { useLibrary } from '@/contexts/LibraryContext';
 import { MusicLibraryService } from '@/services/MusicLibraryService';
 import { Spotify } from '@/constants/theme';
 import { formatDuration } from '@/utils/format';
+import { TAB_BAR_HEIGHT, MINI_PLAYER_HEIGHT } from '@/utils/animation';
 
 const BROWSE_CATEGORIES = [
   { id: '1', title: 'Hip-Hop', color: '#E91429' },
@@ -250,5 +251,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: { fontSize: 15 },
-  bottomSpacer: { height: 140 },
+  bottomSpacer: { height: TAB_BAR_HEIGHT + MINI_PLAYER_HEIGHT + 16 },
 });

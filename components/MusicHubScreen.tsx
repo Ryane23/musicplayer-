@@ -17,6 +17,7 @@ import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { useLibrary } from '@/contexts/LibraryContext';
 import { Spotify } from '@/constants/theme';
 import { getGreeting } from '@/utils/format';
+import { TAB_BAR_HEIGHT, MINI_PLAYER_HEIGHT } from '@/utils/animation';
 
 const SHORTCUT_COLORS = ['#450AF5', '#8D67AB', '#E91429', '#1DB954', '#509BF5', '#F59B23'];
 
@@ -34,7 +35,7 @@ export default function MusicHubScreen() {
   const card = useThemeColor({}, 'card');
   const textSecondary = useThemeColor({}, 'textSecondary');
   const tint = useThemeColor({}, 'tint');
-  const { tracks, isLoading, isDemo, libraryNote } = useLibrary();
+  const { tracks, isLoading, libraryNote } = useLibrary();
   const { loadTracks, playTrack } = useMusicPlayer();
 
   const shortcuts: Shortcut[] = useMemo(() => {
@@ -378,5 +379,5 @@ const styles = StyleSheet.create({
   jumpArtist: {
     fontSize: 13,
   },
-  bottomSpacer: { height: 140 },
+  bottomSpacer: { height: TAB_BAR_HEIGHT + MINI_PLAYER_HEIGHT + 16 },
 });
