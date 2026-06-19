@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { musicPlayerService, RepeatMode } from '../services/MusicPlayerService';
 import { MusicTrack } from '../types/music';
@@ -16,6 +16,7 @@ interface MusicPlayerContextType {
   playbackRate: number;
   showVisualizer: boolean;
   sleepTimerMinutes: number;
+  sleepTimerRemainingSec: number;
   playTrack: (index: number) => Promise<void>;
   togglePlayPause: () => Promise<void>;
   playNext: () => Promise<void>;
@@ -45,8 +46,9 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [repeatMode, setRepeatModeState] = useState<RepeatMode>('off');
   const [playbackRate, setPlaybackRateState] = useState(1);
   const [showVisualizer, setShowVisualizer] = useState(true);
-  const [sleepTimerMinutes, setSleepTimerMinutes] = useState(0);
-  const sleepTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sleepTimerMinutes, setSleepTimerMinutesState] = useState(0);
+  const [sleepTimerEndsAt, setSleepTimerEndsAt] = useState<number | null>(null);
+  const [sleepTimerRemainingSec, setSleepTimerRemainingSec] = useState(0);
 
   useEffect(() => {
     const unsubscribe = musicPlayerService.subscribePlaybackState((state) => {
@@ -72,26 +74,43 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, []);
 
   useEffect(() => {
-    if (sleepTimeoutRef.current) {
-      clearTimeout(sleepTimeoutRef.current);
-      sleepTimeoutRef.current = null;
-    }
-
-    if (sleepTimerMinutes <= 0 || !isPlaying) {
+    if (!sleepTimerEndsAt) {
+      setSleepTimerRemainingSec(0);
       return;
     }
 
-    sleepTimeoutRef.current = setTimeout(() => {
-      void musicPlayerService.stop();
-      setSleepTimerMinutes(0);
-    }, sleepTimerMinutes * 60 * 1000);
-
-    return () => {
-      if (sleepTimeoutRef.current) {
-        clearTimeout(sleepTimeoutRef.current);
+    const tick = () => {
+      const remainingMs = sleepTimerEndsAt - Date.now();
+      if (remainingMs <= 0) {
+        void musicPlayerService.stop().then(() => {
+          setIsPlaying(false);
+        });
+        setSleepTimerEndsAt(null);
+        setSleepTimerMinutesState(0);
+        setSleepTimerRemainingSec(0);
+        return;
       }
+
+      setSleepTimerRemainingSec(Math.ceil(remainingMs / 1000));
     };
-  }, [sleepTimerMinutes, isPlaying]);
+
+    tick();
+    const intervalId = setInterval(tick, 1000);
+    return () => clearInterval(intervalId);
+  }, [sleepTimerEndsAt]);
+
+  const setSleepTimerMinutes = (minutes: number) => {
+    if (minutes <= 0) {
+      setSleepTimerEndsAt(null);
+      setSleepTimerMinutesState(0);
+      setSleepTimerRemainingSec(0);
+      return;
+    }
+
+    setSleepTimerEndsAt(Date.now() + minutes * 60 * 1000);
+    setSleepTimerMinutesState(minutes);
+    setSleepTimerRemainingSec(minutes * 60);
+  };
 
   useEffect(() => {
     return () => {
@@ -178,6 +197,7 @@ export const MusicPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         playbackRate,
         showVisualizer,
         sleepTimerMinutes,
+        sleepTimerRemainingSec,
         playTrack,
         togglePlayPause,
         playNext,

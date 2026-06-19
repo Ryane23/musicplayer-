@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   Image,
-  Pressable,
   TouchableOpacity,
   FlatList,
   Dimensions,
@@ -13,9 +12,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import AudioVisualizer from '@/components/AudioVisualizer';
+import SeekBar from '@/components/SeekBar';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { Spotify } from '@/constants/theme';
 import { formatDuration } from '@/utils/format';
+import { goBackOrHome } from '@/utils/navigation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ART_SIZE = Math.min(SCREEN_WIDTH - 48, 340);
@@ -44,10 +45,10 @@ export default function NowPlayingScreen() {
     playTrack,
   } = useMusicPlayer();
 
-  const [railWidth, setRailWidth] = useState(0);
-  const [volumeRailWidth, setVolumeRailWidth] = useState(0);
   const [showQueue, setShowQueue] = useState(false);
   const [favorite, setFavorite] = useState(false);
+
+  const handleClose = () => goBackOrHome(router);
 
   const track = currentTrack;
   const trackDuration = duration > 0 ? duration : track?.duration ?? 0;
@@ -60,7 +61,7 @@ export default function NowPlayingScreen() {
           <Ionicons name="musical-notes-outline" size={64} color={Spotify.textSecondary} />
           <ThemedText style={styles.emptyTitle}>Nothing playing</ThemedText>
           <ThemedText style={styles.emptySubtitle}>Pick a song from your library</ThemedText>
-          <TouchableOpacity style={styles.emptyButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.emptyButton} onPress={handleClose}>
             <ThemedText style={styles.emptyButtonText}>Go back</ThemedText>
           </TouchableOpacity>
         </View>
@@ -77,7 +78,7 @@ export default function NowPlayingScreen() {
       <View style={styles.topGlow} />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.headerBtn} onPress={handleClose}>
           <Ionicons name="chevron-down" size={28} color={Spotify.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -127,17 +128,13 @@ export default function NowPlayingScreen() {
         {showVisualizer ? <AudioVisualizer isPlaying={isPlaying} /> : null}
 
         <View style={styles.progressBlock}>
-          <Pressable
-            style={styles.progressRail}
-            onLayout={(e) => setRailWidth(e.nativeEvent.layout.width)}
-            onPress={(e) => {
-              if (railWidth <= 0) return;
-              const ratio = Math.max(0, Math.min(e.nativeEvent.locationX / railWidth, 1));
-              void seekTo(ratio * trackDuration);
-            }}
-          >
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
-          </Pressable>
+          <SeekBar
+            progress={progress / 100}
+            onSeek={(ratio) => void seekTo(ratio * trackDuration)}
+            trackColor={Spotify.card}
+            fillColor={Spotify.textPrimary}
+            height={4}
+          />
           <View style={styles.timeRow}>
             <ThemedText style={styles.time}>{formatDuration(position)}</ThemedText>
             <ThemedText style={styles.time}>{formatDuration(trackDuration)}</ThemedText>
@@ -182,17 +179,14 @@ export default function NowPlayingScreen() {
 
         <View style={styles.volumeRow}>
           <Ionicons name="volume-low" size={18} color={Spotify.textSecondary} />
-          <Pressable
-            style={styles.volumeRail}
-            onLayout={(e) => setVolumeRailWidth(e.nativeEvent.layout.width)}
-            onPress={(e) => {
-              if (volumeRailWidth <= 0) return;
-              const ratio = Math.max(0, Math.min(e.nativeEvent.locationX / volumeRailWidth, 1));
-              void setVolume(ratio);
-            }}
-          >
-            <View style={[styles.volumeFill, { width: `${volume * 100}%` }]} />
-          </Pressable>
+          <SeekBar
+            progress={volume}
+            onSeek={(ratio) => void setVolume(ratio)}
+            trackColor={Spotify.card}
+            fillColor={Spotify.textSecondary}
+            height={4}
+            style={styles.volumeSeek}
+          />
           <Ionicons name="volume-high" size={18} color={Spotify.textSecondary} />
         </View>
 
@@ -342,17 +336,6 @@ const styles = StyleSheet.create({
   progressBlock: {
     marginBottom: 20,
   },
-  progressRail: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Spotify.card,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Spotify.textPrimary,
-    borderRadius: 2,
-  },
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -411,17 +394,8 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 12,
   },
-  volumeRail: {
+  volumeSeek: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Spotify.card,
-    overflow: 'hidden',
-  },
-  volumeFill: {
-    height: '100%',
-    backgroundColor: Spotify.textSecondary,
-    borderRadius: 2,
   },
   metaRow: {
     flexDirection: 'row',

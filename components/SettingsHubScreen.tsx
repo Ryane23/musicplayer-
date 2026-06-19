@@ -5,12 +5,12 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Pressable,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
+import SeekBar from '@/components/SeekBar';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { useLibrary } from '@/contexts/LibraryContext';
 import { Spotify } from '@/constants/theme';
@@ -18,6 +18,12 @@ import { TAB_BAR_HEIGHT, MINI_PLAYER_HEIGHT } from '@/utils/animation';
 
 const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5];
 const SLEEP_OPTIONS = [0, 15, 30, 45, 60];
+
+function formatSleepRemaining(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
 
 type SectionProps = {
   title: string;
@@ -74,22 +80,26 @@ export default function SettingsHubScreen() {
     playbackRate,
     showVisualizer,
     sleepTimerMinutes,
+    sleepTimerRemainingSec,
     setVolume,
     setShuffle,
     setPlaybackRate,
     setShowVisualizer,
     setSleepTimerMinutes,
     cycleRepeatMode,
+    loadTracks,
   } = useMusicPlayer();
 
   const { tracks, isLoading, isDemo, hasPermission, libraryNote, refresh } = useLibrary();
-  const [volumeRailWidth, setVolumeRailWidth] = useState(0);
   const [scanning, setScanning] = useState(false);
 
   const handleScan = async () => {
     setScanning(true);
     try {
-      await refresh();
+      const scannedTracks = await refresh();
+      if (scannedTracks.length > 0) {
+        await loadTracks(scannedTracks);
+      }
     } finally {
       setScanning(false);
     }
@@ -150,17 +160,14 @@ export default function SettingsHubScreen() {
             <ThemedText style={styles.rowLabel}>Volume</ThemedText>
             <ThemedText style={styles.rowValue}>{Math.round(volume * 100)}%</ThemedText>
           </View>
-          <Pressable
-            style={styles.volumeRail}
-            onLayout={(e) => setVolumeRailWidth(e.nativeEvent.layout.width)}
-            onPress={(e) => {
-              if (volumeRailWidth <= 0) return;
-              const ratio = Math.max(0, Math.min(e.nativeEvent.locationX / volumeRailWidth, 1));
-              void setVolume(ratio);
-            }}
-          >
-            <View style={[styles.volumeFill, { width: `${volume * 100}%` }]} />
-          </Pressable>
+          <SeekBar
+            progress={volume}
+            onSeek={(ratio) => void setVolume(ratio)}
+            trackColor={Spotify.card}
+            fillColor={Spotify.green}
+            height={6}
+            style={styles.volumeSeek}
+          />
           <View style={styles.divider} />
           <SettingRow
             icon="pulse-outline"
@@ -225,9 +232,9 @@ export default function SettingsHubScreen() {
               );
             })}
           </View>
-          {sleepTimerMinutes > 0 ? (
+          {sleepTimerRemainingSec > 0 ? (
             <ThemedText style={styles.note}>
-              Playback will stop in {sleepTimerMinutes} minutes.
+              Playback will stop in {formatSleepRemaining(sleepTimerRemainingSec)}.
             </ThemedText>
           ) : null}
         </Section>
@@ -330,17 +337,8 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     color: Spotify.black,
   },
-  volumeRail: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Spotify.card,
+  volumeSeek: {
     marginTop: 10,
-    overflow: 'hidden',
-  },
-  volumeFill: {
-    height: '100%',
-    backgroundColor: Spotify.green,
-    borderRadius: 3,
   },
   primaryBtn: {
     flexDirection: 'row',

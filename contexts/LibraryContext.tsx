@@ -10,7 +10,7 @@ interface LibraryContextType {
   hasPermission: boolean;
   isDemo: boolean;
   libraryNote: string | null;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<MusicTrack[]>;
 }
 
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
@@ -22,7 +22,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [isDemo, setIsDemo] = useState(true);
   const [libraryNote, setLibraryNote] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<MusicTrack[]> => {
     setIsLoading(true);
     try {
       const demoTracks = await getDemoTracks();
@@ -34,7 +34,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         setLibraryNote(
           'Expo Go on Android cannot access your music library. Create a development build to scan device songs.'
         );
-        return;
+        return demoTracks;
       }
 
       const granted = await MusicLibraryService.requestPermission();
@@ -44,7 +44,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         setTracks(demoTracks);
         setIsDemo(true);
         setLibraryNote('Library access not granted — playing bundled demo tracks.');
-        return;
+        return demoTracks;
       }
 
       const localTracks = await MusicLibraryService.getAllMusic();
@@ -52,11 +52,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         setTracks(localTracks);
         setIsDemo(false);
         setLibraryNote(null);
-      } else {
-        setTracks(demoTracks);
-        setIsDemo(true);
-        setLibraryNote('No audio files found on device — playing bundled demo tracks.');
+        return localTracks;
       }
+
+      setTracks(demoTracks);
+      setIsDemo(true);
+      setLibraryNote('No audio files found on device — playing bundled demo tracks.');
+      return demoTracks;
     } catch (error) {
       console.warn('Failed to load music library, using demo tracks:', error);
       const demoTracks = await getDemoTracks();
@@ -64,6 +66,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setIsDemo(true);
       setLibraryNote('Could not load library — playing bundled demo tracks.');
       setHasPermission(false);
+      return demoTracks;
     } finally {
       setIsLoading(false);
     }

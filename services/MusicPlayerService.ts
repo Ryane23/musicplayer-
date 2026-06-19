@@ -1,6 +1,7 @@
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import { Platform } from 'react-native';
 import { MusicTrack } from '../types/music';
+import { clearWebAudioElementHandlers } from '../utils/audioWeb';
 
 export type RepeatMode = 'off' | 'one' | 'all';
 
@@ -23,6 +24,7 @@ class MusicPlayerService {
   private repeatMode: RepeatMode = 'off';
   private playbackRate = 1;
   private storedVolume = 1;
+  private isUnloading = false;
 
   private notifyListeners() {
     const snapshot = {
@@ -34,7 +36,7 @@ class MusicPlayerService {
   }
 
   private handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (!this.soundObject || !status.isLoaded) {
+    if (this.isUnloading || !this.soundObject || !status.isLoaded) {
       return;
     }
 
@@ -90,12 +92,10 @@ class MusicPlayerService {
       await sound.setIsLoopingAsync(false);
     }
 
-    if (this.playbackRate !== 1) {
-      try {
-        await sound.setRateAsync(this.playbackRate, true);
-      } catch (error) {
-        console.warn('Playback rate not supported on this platform:', error);
-      }
+    try {
+      await sound.setRateAsync(this.playbackRate, true);
+    } catch (error) {
+      console.warn('Playback rate not supported on this platform:', error);
     }
   }
 
@@ -124,12 +124,24 @@ class MusicPlayerService {
       return;
     }
 
+    this.isUnloading = true;
+
     try {
       await sound.setOnPlaybackStatusUpdate(null);
-      await sound.stopAsync();
+      clearWebAudioElementHandlers(sound);
+
+      try {
+        await sound.pauseAsync();
+      } catch {
+        // Already paused or unloaded.
+      }
+
+      clearWebAudioElementHandlers(sound);
       await sound.unloadAsync();
     } catch (error) {
       console.warn('Error unloading sound:', error);
+    } finally {
+      this.isUnloading = false;
     }
   }
 
@@ -166,8 +178,23 @@ class MusicPlayerService {
   }
 
   async loadTracks(tracks: MusicTrack[]) {
+    const current = this.getCurrentTrack();
     this.tracks = tracks;
-    if (tracks.length > 0 && this.currentTrackIndex === -1) {
+
+    if (tracks.length === 0) {
+      this.currentTrackIndex = -1;
+      return;
+    }
+
+    if (current) {
+      const nextIndex = tracks.findIndex((track) => track.id === current.id);
+      if (nextIndex >= 0) {
+        this.currentTrackIndex = nextIndex;
+        return;
+      }
+    }
+
+    if (this.currentTrackIndex < 0 || this.currentTrackIndex >= tracks.length) {
       this.currentTrackIndex = 0;
     }
   }
