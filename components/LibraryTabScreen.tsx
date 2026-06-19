@@ -6,13 +6,12 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
-  ActivityIndicator,
   Alert,
+  SectionList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, Entypo } from '@expo/vector-icons';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { ThemedText } from '@/components/themed-text';
 import { MusicTrack } from '@/types/music';
 import { UserPlaylist } from '@/types/playlist';
@@ -22,6 +21,7 @@ import { usePlaylists } from '@/contexts/PlaylistContext';
 import PlaylistFormModal from '@/components/playlist/PlaylistFormModal';
 import SpotifyImportModal from '@/components/playlist/SpotifyImportModal';
 import PlaylistDetailModal from '@/components/playlist/PlaylistDetailModal';
+import LibraryScanningView from '@/components/LibraryScanningView';
 import { Spotify } from '@/constants/theme';
 import { formatDuration } from '@/utils/format';
 import { TAB_BAR_HEIGHT, MINI_PLAYER_HEIGHT } from '@/utils/animation';
@@ -32,12 +32,12 @@ type LibraryItem = {
   id: string;
   title: string;
   subtitle: string;
-  type: string;
   coverUri?: string;
   tracks: MusicTrack[];
   isUserPlaylist?: boolean;
   userPlaylist?: UserPlaylist;
   isLiked?: boolean;
+  isSpotify?: boolean;
 };
 
 const FILTERS: LibraryFilter[] = ['Playlists', 'Artists', 'Albums', 'Songs'];
@@ -45,11 +45,15 @@ const LIST_BOTTOM = TAB_BAR_HEIGHT + MINI_PLAYER_HEIGHT + 12;
 
 export default function LibraryTabScreen() {
   const router = useRouter();
-  const background = useThemeColor({}, 'background');
-  const card = useThemeColor({}, 'card');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const tint = useThemeColor({}, 'tint');
-  const { tracks, isLoading, isDemo } = useLibrary();
+  const {
+    tracks,
+    isLoading,
+    scanMessage,
+    isDemo,
+    libraryNote,
+    hasPermission,
+    refresh,
+  } = useLibrary();
   const { loadTracks, playTrack } = useMusicPlayer();
   const {
     playlists,
@@ -62,12 +66,12 @@ export default function LibraryTabScreen() {
   } = usePlaylists();
 
   const [filter, setFilter] = useState<LibraryFilter>('Playlists');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [formVisible, setFormVisible] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [editingPlaylist, setEditingPlaylist] = useState<UserPlaylist | undefined>();
   const [spotifyVisible, setSpotifyVisible] = useState(false);
   const [detailPlaylist, setDetailPlaylist] = useState<UserPlaylist | null>(null);
+  const [rescanning, setRescanning] = useState(false);
 
   const systemPlaylists: LibraryItem[] = useMemo(
     () => [
@@ -75,7 +79,6 @@ export default function LibraryTabScreen() {
         id: 'liked',
         title: 'Liked Songs',
         subtitle: `${tracks.length} songs`,
-        type: 'Playlist',
         isLiked: true,
         tracks,
       },
@@ -83,15 +86,13 @@ export default function LibraryTabScreen() {
         id: 'recent',
         title: 'Recently Played',
         subtitle: `${Math.min(20, tracks.length)} songs`,
-        type: 'Playlist',
         coverUri: tracks[0]?.coverUri,
         tracks: tracks.slice(0, 20),
       },
       {
-        id: 'downloads',
+        id: 'device',
         title: 'On This Device',
-        subtitle: isDemo ? 'Demo tracks' : `${tracks.length} local songs`,
-        type: 'Playlist',
+        subtitle: isDemo ? 'Demo tracks' : `${tracks.length} songs`,
         coverUri: tracks[1]?.coverUri,
         tracks,
       },
@@ -106,27 +107,23 @@ export default function LibraryTabScreen() {
         return {
           id: playlist.id,
           title: playlist.name,
-          subtitle:
-            playlist.source === 'spotify'
-              ? `${playlistTracks.length} songs · Spotify`
-              : `${playlistTracks.length} songs`,
-          type: 'Playlist',
+          subtitle: `${playlistTracks.length} songs`,
           coverUri: playlist.coverUri ?? playlistTracks[0]?.coverUri,
           tracks: playlistTracks,
           isUserPlaylist: true,
+          isSpotify: playlist.source === 'spotify',
           userPlaylist: playlist,
         };
       }),
     [playlists, resolvePlaylistTracks, tracks]
   );
 
-  const items: LibraryItem[] = useMemo(() => {
+  const flatItems: LibraryItem[] = useMemo(() => {
     if (filter === 'Songs') {
       return tracks.map((track) => ({
         id: track.id,
         title: track.title,
         subtitle: track.artist,
-        type: 'Song',
         coverUri: track.coverUri,
         tracks: [track],
       }));
@@ -142,8 +139,7 @@ export default function LibraryTabScreen() {
       return Array.from(albums.entries()).map(([key, albumTracks]) => ({
         id: key,
         title: albumTracks[0].album,
-        subtitle: albumTracks[0].artist,
-        type: 'Album',
+        subtitle: `${albumTracks[0].artist} · ${albumTracks.length} songs`,
         coverUri: albumTracks[0].coverUri,
         tracks: albumTracks,
       }));
@@ -159,20 +155,39 @@ export default function LibraryTabScreen() {
         id: artist,
         title: artist,
         subtitle: `${artistTracks.length} songs`,
-        type: 'Artist',
         coverUri: artistTracks[0].coverUri,
         tracks: artistTracks,
       }));
     }
 
-    return [...userPlaylistItems, ...systemPlaylists];
-  }, [filter, tracks, systemPlaylists, userPlaylistItems]);
+    return [];
+  }, [filter, tracks]);
+
+  const playlistSections = useMemo(
+    () => [
+      { title: 'Your playlists', data: userPlaylistItems },
+      { title: 'Quick access', data: systemPlaylists },
+    ],
+    [userPlaylistItems, systemPlaylists]
+  );
 
   const handlePlay = async (playlistTracks: MusicTrack[]) => {
     if (playlistTracks.length === 0) return;
     await loadTracks(playlistTracks);
     await playTrack(0);
     router.push('/now-playing');
+  };
+
+  const handleRescan = async () => {
+    setRescanning(true);
+    try {
+      const scanned = await refresh();
+      if (scanned.length > 0) {
+        await loadTracks(scanned);
+      }
+    } finally {
+      setRescanning(false);
+    }
   };
 
   const openCreate = () => {
@@ -192,6 +207,7 @@ export default function LibraryTabScreen() {
     Alert.alert('Library', 'What would you like to do?', [
       { text: 'Create playlist', onPress: openCreate },
       { text: 'Import from Spotify', onPress: () => setSpotifyVisible(true) },
+      { text: 'Rescan library', onPress: () => void handleRescan() },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
@@ -204,115 +220,112 @@ export default function LibraryTabScreen() {
     void handlePlay(item.tracks);
   };
 
-  const renderArtwork = (item: LibraryItem, size: 'list' | 'grid') => {
-    const listStyle = size === 'list' ? styles.listArt : styles.gridArt;
-
+  const renderArtwork = (item: LibraryItem) => {
     if (item.isLiked) {
       return (
-        <View style={[listStyle, styles.likedArt]}>
-          <Ionicons name="heart" size={size === 'list' ? 18 : 28} color="#fff" />
+        <View style={[styles.art, styles.likedArt]}>
+          <Ionicons name="heart" size={16} color="#fff" />
         </View>
       );
     }
 
-    if (!item.isUserPlaylist && item.id === 'recent' && item.coverUri) {
-      return <Image source={{ uri: item.coverUri }} style={listStyle} />;
-    }
-
     if (item.coverUri) {
-      return <Image source={{ uri: item.coverUri }} style={listStyle} />;
+      return <Image source={{ uri: item.coverUri }} style={styles.art} />;
     }
 
     return (
-      <View style={[listStyle, { backgroundColor: card }]}>
+      <View style={[styles.art, styles.artFallback]}>
         <Ionicons
-          name={item.isUserPlaylist ? 'list' : 'musical-notes'}
-          size={size === 'list' ? 18 : 26}
-          color={textSecondary}
+          name={item.isSpotify ? 'musical-notes' : item.isUserPlaylist ? 'list' : 'musical-notes'}
+          size={16}
+          color={Spotify.textSecondary}
         />
       </View>
     );
   };
 
-  const renderListItem = ({ item }: { item: LibraryItem }) => (
-    <TouchableOpacity
-      style={styles.listRow}
-      onPress={() => handleItemPress(item)}
-      activeOpacity={0.7}
-    >
-      {renderArtwork(item, 'list')}
-      <View style={styles.listMeta}>
-        <ThemedText style={styles.listTitle} numberOfLines={1}>
-          {item.title}
-        </ThemedText>
-        <ThemedText style={[styles.listSubtitle, { color: textSecondary }]} numberOfLines={1}>
+  const renderRow = (item: LibraryItem) => (
+    <TouchableOpacity style={styles.row} onPress={() => handleItemPress(item)} activeOpacity={0.7}>
+      {renderArtwork(item)}
+      <View style={styles.rowMeta}>
+        <View style={styles.titleRow}>
+          <ThemedText style={styles.rowTitle} numberOfLines={1}>
+            {item.title}
+          </ThemedText>
+          {item.isSpotify ? <Entypo name="spotify" size={12} color={Spotify.green} /> : null}
+        </View>
+        <ThemedText style={styles.rowSubtitle} numberOfLines={1}>
           {filter === 'Songs'
             ? `${item.subtitle} · ${formatDuration(item.tracks[0]?.duration ?? 0)}`
             : item.subtitle}
         </ThemedText>
       </View>
       <TouchableOpacity
-        style={styles.rowAction}
+        style={styles.playBtn}
         onPress={() => void handlePlay(item.tracks)}
         hitSlop={8}
       >
-        <Ionicons name="play-circle" size={28} color={Spotify.textSecondary} />
+        <Ionicons name="play" size={16} color={Spotify.textPrimary} />
       </TouchableOpacity>
       {item.isUserPlaylist ? (
         <TouchableOpacity
-          style={styles.rowAction}
+          style={styles.menuBtn}
           onPress={() => item.userPlaylist && openEdit(item.userPlaylist)}
           hitSlop={8}
         >
-          <Ionicons name="ellipsis-horizontal" size={18} color={Spotify.textMuted} />
+          <Ionicons name="ellipsis-horizontal" size={16} color={Spotify.textMuted} />
         </TouchableOpacity>
       ) : null}
     </TouchableOpacity>
   );
 
-  const renderGridItem = ({ item }: { item: LibraryItem }) => (
-    <TouchableOpacity style={styles.gridItem} onPress={() => handleItemPress(item)} activeOpacity={0.85}>
-      {renderArtwork(item, 'grid')}
-      <ThemedText style={styles.gridTitle} numberOfLines={2}>
-        {item.title}
-      </ThemedText>
-      <ThemedText style={[styles.gridSubtitle, { color: textSecondary }]} numberOfLines={1}>
-        {item.subtitle}
-      </ThemedText>
-    </TouchableOpacity>
-  );
-
   const detailTracks = detailPlaylist ? resolvePlaylistTracks(detailPlaylist, tracks) : [];
-  const loading = isLoading || playlistsLoading;
+
+  if (isLoading || rescanning) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <LibraryScanningView
+          message={rescanning ? 'Rescanning your library...' : scanMessage}
+          subtitle="Please wait — your music loads before anything else"
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <ThemedText style={styles.headerTitle}>Your Library</ThemedText>
+        <View>
+          <ThemedText style={styles.headerTitle}>Your Library</ThemedText>
+          <ThemedText style={styles.headerMeta}>
+            {tracks.length} songs · {playlists.length} playlists
+            {isDemo ? ' · demo' : hasPermission ? ' · local' : ''}
+          </ThemedText>
+        </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => router.push('/search')} style={styles.iconBtn}>
-            <Ionicons name="search" size={22} color={Spotify.textPrimary} />
+          <TouchableOpacity onPress={() => router.push('/(tabs)/search')} style={styles.headerIcon}>
+            <Ionicons name="search" size={20} color={Spotify.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-            style={styles.iconBtn}
-          >
-            <Ionicons
-              name={viewMode === 'list' ? 'grid' : 'list'}
-              size={20}
-              color={Spotify.textPrimary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.addBtn, { backgroundColor: tint }]} onPress={openAddMenu}>
-            <Ionicons name="add" size={20} color="#000" />
+          <TouchableOpacity style={styles.addCircle} onPress={openAddMenu}>
+            <Ionicons name="add" size={20} color={Spotify.black} />
           </TouchableOpacity>
         </View>
       </View>
 
+      {libraryNote ? (
+        <TouchableOpacity style={styles.noteBanner} onPress={() => void handleRescan()}>
+          <Ionicons name="information-circle-outline" size={16} color={Spotify.green} />
+          <ThemedText style={styles.noteText} numberOfLines={2}>
+            {libraryNote}
+          </ThemedText>
+          <ThemedText style={styles.noteAction}>Rescan</ThemedText>
+        </TouchableOpacity>
+      ) : null}
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
+        contentContainerStyle={styles.filters}
       >
         {FILTERS.map((label) => {
           const selected = filter === label;
@@ -320,17 +333,9 @@ export default function LibraryTabScreen() {
             <TouchableOpacity
               key={label}
               onPress={() => setFilter(label)}
-              style={[
-                styles.filterChip,
-                {
-                  backgroundColor: selected ? '#fff' : 'transparent',
-                  borderColor: selected ? '#fff' : textSecondary,
-                },
-              ]}
+              style={[styles.filterChip, selected && styles.filterChipActive]}
             >
-              <ThemedText
-                style={[styles.filterText, { color: selected ? '#000' : Spotify.textPrimary }]}
-              >
+              <ThemedText style={[styles.filterText, selected && styles.filterTextActive]}>
                 {label}
               </ThemedText>
             </TouchableOpacity>
@@ -339,45 +344,51 @@ export default function LibraryTabScreen() {
       </ScrollView>
 
       {filter === 'Playlists' ? (
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickBtn} onPress={openCreate}>
-            <Ionicons name="add-circle-outline" size={16} color={Spotify.green} />
-            <ThemedText style={styles.quickBtnText}>Create</ThemedText>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.actionPill} onPress={openCreate}>
+            <Ionicons name="add" size={14} color={Spotify.green} />
+            <ThemedText style={styles.actionPillText}>New playlist</ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickBtn} onPress={() => setSpotifyVisible(true)}>
-            <Entypo name="spotify" size={16} color={Spotify.green} />
-            <ThemedText style={styles.quickBtnText}>Import Spotify</ThemedText>
+          <TouchableOpacity style={styles.actionPill} onPress={() => setSpotifyVisible(true)}>
+            <Entypo name="spotify" size={14} color={Spotify.green} />
+            <ThemedText style={styles.actionPillText}>Import</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionPill} onPress={() => void handleRescan()}>
+            <Ionicons name="refresh" size={14} color={Spotify.green} />
+            <ThemedText style={styles.actionPillText}>Rescan</ThemedText>
           </TouchableOpacity>
         </View>
       ) : null}
 
-      {loading ? (
-        <ActivityIndicator color={tint} style={styles.loader} />
-      ) : viewMode === 'list' ? (
-        <FlatList
-          data={items}
+      {playlistsLoading ? (
+        <LibraryScanningView message="Loading playlists..." compact />
+      ) : filter === 'Playlists' ? (
+        <SectionList
+          sections={playlistSections}
           keyExtractor={(item) => item.id}
-          renderItem={renderListItem}
+          renderSectionHeader={({ section: { title, data } }) =>
+            data.length > 0 ? (
+              <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
+            ) : null
+          }
+          renderItem={({ item }) => renderRow(item)}
           contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          stickySectionHeadersEnabled={false}
           ListEmptyComponent={
             <ThemedText style={styles.emptyText}>
-              {filter === 'Playlists' ? 'No playlists yet. Create one or import from Spotify.' : 'Nothing here yet.'}
+              No playlists yet. Create one or import from Spotify.
             </ThemedText>
           }
         />
       ) : (
         <FlatList
-          data={items}
+          data={flatItems}
           keyExtractor={(item) => item.id}
-          renderItem={renderGridItem}
-          numColumns={2}
-          columnWrapperStyle={styles.gridRow}
-          contentContainerStyle={styles.gridContent}
+          renderItem={({ item }) => renderRow(item)}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
-            <ThemedText style={styles.emptyText}>
-              {filter === 'Playlists' ? 'No playlists yet.' : 'Nothing here yet.'}
-            </ThemedText>
+            <ThemedText style={styles.emptyText}>Nothing found in your library.</ThemedText>
           }
         />
       )}
@@ -440,129 +451,185 @@ export default function LibraryTabScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: Spotify.background,
+  },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    color: Spotify.textPrimary,
+    letterSpacing: -0.4,
+  },
+  headerMeta: {
+    fontSize: 12,
+    color: Spotify.textMuted,
+    marginTop: 2,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    marginTop: 4,
   },
-  iconBtn: { padding: 2 },
-  addBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  headerIcon: {
+    padding: 6,
+    backgroundColor: Spotify.elevated,
+    borderRadius: 18,
+  },
+  addCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Spotify.green,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filterRow: {
+  noteBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Spotify.elevated,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(29,185,84,0.25)',
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 12,
+    color: Spotify.textSecondary,
+    lineHeight: 16,
+  },
+  noteAction: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Spotify.green,
+  },
+  filters: {
     paddingHorizontal: 16,
     gap: 8,
     paddingBottom: 10,
   },
   filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    backgroundColor: Spotify.elevated,
+  },
+  filterChipActive: {
+    backgroundColor: Spotify.textPrimary,
   },
   filterText: {
     fontSize: 12,
     fontWeight: '600',
+    color: Spotify.textPrimary,
   },
-  quickActions: {
+  filterTextActive: {
+    color: Spotify.black,
+  },
+  actionRow: {
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 16,
     marginBottom: 10,
   },
-  quickBtn: {
+  actionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 16,
     backgroundColor: Spotify.elevated,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.06)',
   },
-  quickBtnText: {
+  actionPillText: {
     fontSize: 12,
     fontWeight: '600',
     color: Spotify.textPrimary,
   },
-  loader: { marginTop: 24 },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: LIST_BOTTOM,
   },
-  listRow: {
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Spotify.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
   },
-  listArt: {
-    width: 48,
-    height: 48,
-    borderRadius: 4,
+  art: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+  },
+  artFallback: {
+    backgroundColor: Spotify.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   likedArt: {
     backgroundColor: '#450AF5',
-  },
-  listMeta: { flex: 1, minWidth: 0 },
-  listTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  listSubtitle: { fontSize: 12 },
-  rowAction: {
-    padding: 2,
-  },
-  separator: { height: 2 },
-  gridContent: {
-    paddingHorizontal: 16,
-    paddingBottom: LIST_BOTTOM,
-  },
-  gridRow: {
-    gap: 10,
-    marginBottom: 14,
-  },
-  gridItem: {
-    flex: 1,
-    maxWidth: '48%',
-  },
-  gridArt: {
-    width: '100%',
-    height: 108,
-    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  gridTitle: {
-    fontSize: 13,
+  rowMeta: {
+    flex: 1,
+    minWidth: 0,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rowTitle: {
+    fontSize: 14,
     fontWeight: '600',
-    lineHeight: 17,
-    marginBottom: 2,
+    color: Spotify.textPrimary,
+    flexShrink: 1,
   },
-  gridSubtitle: { fontSize: 11 },
+  rowSubtitle: {
+    fontSize: 12,
+    color: Spotify.textSecondary,
+    marginTop: 2,
+  },
+  playBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Spotify.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuBtn: {
+    padding: 4,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
   emptyText: {
     textAlign: 'center',
     color: Spotify.textSecondary,

@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import MusicLogo from '@/components/MusicLogo';
 import EqualizerBars from '@/components/EqualizerBars';
+import { useLibrary } from '@/contexts/LibraryContext';
 import { Spotify } from '@/constants/theme';
 import { USE_NATIVE_DRIVER } from '@/utils/animation';
 
@@ -11,10 +12,15 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function SplashRoute() {
   const router = useRouter();
+  const { isLoading, scanMessage } = useLibrary();
+  const [animDone, setAnimDone] = useState(false);
+
   const screenOpacity = useRef(new Animated.Value(1)).current;
   const titleOpacity = useRef(new Animated.Value(0)).current;
   const titleY = useRef(new Animated.Value(24)).current;
   const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const scanOpacity = useRef(new Animated.Value(0)).current;
+  const signatureOpacity = useRef(new Animated.Value(0)).current;
   const barsOpacity = useRef(new Animated.Value(0)).current;
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -25,7 +31,7 @@ export default function SplashRoute() {
       await SplashScreen.hideAsync().catch(() => {});
 
       Animated.sequence([
-        Animated.delay(400),
+        Animated.delay(300),
         Animated.parallel([
           Animated.timing(titleOpacity, {
             toValue: 1,
@@ -45,29 +51,36 @@ export default function SplashRoute() {
             useNativeDriver: USE_NATIVE_DRIVER,
           }),
         ]),
-        Animated.timing(taglineOpacity, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: USE_NATIVE_DRIVER,
-        }),
+        Animated.parallel([
+          Animated.timing(taglineOpacity, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+          Animated.timing(scanOpacity, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+        ]),
         Animated.timing(progress, {
-          toValue: 1,
-          duration: 1800,
+          toValue: 0.85,
+          duration: 1600,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: false,
         }),
-        Animated.delay(300),
-        Animated.timing(screenOpacity, {
-          toValue: 0,
-          duration: 450,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: USE_NATIVE_DRIVER,
-        }),
       ]).start(({ finished }) => {
         if (finished && mounted) {
-          router.replace('/(tabs)');
+          setAnimDone(true);
         }
       });
+
+      Animated.timing(signatureOpacity, {
+        toValue: 1,
+        duration: 600,
+        delay: 900,
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }).start();
     };
 
     void run();
@@ -75,7 +88,34 @@ export default function SplashRoute() {
     return () => {
       mounted = false;
     };
-  }, [barsOpacity, progress, router, screenOpacity, taglineOpacity, titleOpacity, titleY]);
+  }, [barsOpacity, progress, scanOpacity, signatureOpacity, taglineOpacity, titleOpacity, titleY]);
+
+  useEffect(() => {
+    if (!animDone || isLoading) {
+      return;
+    }
+
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+
+    const timeout = setTimeout(() => {
+      Animated.timing(screenOpacity, {
+        toValue: 0,
+        duration: 400,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }).start(({ finished }) => {
+        if (finished) {
+          router.replace('/(tabs)');
+        }
+      });
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [animDone, isLoading, progress, router, screenOpacity]);
 
   const progressWidth = progress.interpolate({
     inputRange: [0, 1],
@@ -88,7 +128,7 @@ export default function SplashRoute() {
       <View style={styles.glowBottom} />
 
       <View style={styles.content}>
-        <MusicLogo size={132} animated />
+        <MusicLogo size={120} animated />
 
         <Animated.View
           style={{
@@ -103,6 +143,10 @@ export default function SplashRoute() {
           Your music. Your library.
         </Animated.Text>
 
+        <Animated.Text style={[styles.scanText, { opacity: scanOpacity }]} numberOfLines={2}>
+          {isLoading ? scanMessage : 'Library ready'}
+        </Animated.Text>
+
         <Animated.View style={[styles.barsWrap, { opacity: barsOpacity }]}>
           <EqualizerBars />
         </Animated.View>
@@ -112,6 +156,9 @@ export default function SplashRoute() {
         <View style={styles.progressTrack}>
           <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
         </View>
+        <Animated.Text style={[styles.signature, { opacity: signatureOpacity }]}>
+          Developed by Ryan Smoke
+        </Animated.Text>
       </View>
     </Animated.View>
   );
@@ -149,25 +196,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   appName: {
-    marginTop: 28,
-    fontSize: 34,
+    marginTop: 24,
+    fontSize: 32,
     fontWeight: '800',
     color: Spotify.textPrimary,
     letterSpacing: -0.8,
     textAlign: 'center',
   },
   tagline: {
-    marginTop: 10,
+    marginTop: 8,
     fontSize: 15,
     color: Spotify.textSecondary,
     textAlign: 'center',
   },
+  scanText: {
+    marginTop: 14,
+    fontSize: 13,
+    color: Spotify.green,
+    textAlign: 'center',
+    fontWeight: '600',
+    paddingHorizontal: 16,
+  },
   barsWrap: {
-    marginTop: 36,
+    marginTop: 28,
   },
   footer: {
     paddingHorizontal: 40,
-    paddingBottom: 48,
+    paddingBottom: 40,
+    gap: 14,
   },
   progressTrack: {
     height: 3,
@@ -179,5 +235,12 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 999,
     backgroundColor: Spotify.green,
+  },
+  signature: {
+    fontSize: 12,
+    color: Spotify.textMuted,
+    textAlign: 'center',
+    letterSpacing: 0.6,
+    fontWeight: '500',
   },
 });

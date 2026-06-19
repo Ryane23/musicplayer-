@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Ionicons, Entypo } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
-import { MusicTrack } from '@/types/music';
 import { Spotify } from '@/constants/theme';
 
 type Props = {

@@ -31,7 +31,7 @@ export class MusicLibraryService {
   /**
    * Load all audio files from the device
    */
-  static async getAllMusic(): Promise<MusicTrack[]> {
+  static async getAllMusic(onProgress?: (count: number) => void): Promise<MusicTrack[]> {
     if (!canScanDeviceLibrary()) {
       return [];
     }
@@ -56,6 +56,7 @@ export class MusicLibraryService {
         });
 
         allAssets = [...allAssets, ...result.assets];
+        onProgress?.(allAssets.length);
         hasNextPage = result.hasNextPage;
         after = result.endCursor;
       }
