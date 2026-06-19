@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
-const AudioVisualizer = ({ isPlaying }: { isPlaying: boolean }) => {
+const AudioVisualizer = ({ isPlaying, compact = false }: { isPlaying: boolean; compact?: boolean }) => {
   const bars = useRef(Array.from({ length: 20 }, (_, i) => i)).current;
   const animatedValues = useRef(bars.map(() => new Animated.Value(10))).current;
   const color = useThemeColor({}, 'tint');
@@ -42,8 +42,8 @@ const AudioVisualizer = ({ isPlaying }: { isPlaying: boolean }) => {
   }, [animatedValues, bars, isPlaying]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.visualizerBars}>
+    <View style={[styles.container, compact && styles.containerCompact]}>
+      <View style={[styles.visualizerBars, compact && styles.visualizerBarsCompact]}>
         {bars.map((_, index) => (
           <Animated.View
             key={index}
@@ -67,12 +67,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 24,
   },
+  containerCompact: {
+    marginVertical: 0,
+    height: 48,
+    justifyContent: 'flex-end',
+  },
   visualizerBars: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-end',
     height: 80,
     gap: 4,
+  },
+  visualizerBarsCompact: {
+    height: 40,
+    gap: 3,
   },
   visualizerBar: {
     width: 4,

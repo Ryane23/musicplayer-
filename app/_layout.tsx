@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { MusicPlayerProvider } from '../contexts/MusicPlayerContext';
 import { LibraryProvider } from '../contexts/LibraryContext';
+import { PlaylistProvider } from '../contexts/PlaylistContext';
 import MiniPlayer from '../components/MiniPlayer';
 import LibraryPlayerSync from '../components/LibraryPlayerSync';
 
@@ -18,7 +19,8 @@ export default function RootLayout() {
 
   return (
     <LibraryProvider>
-      <MusicPlayerProvider>
+      <PlaylistProvider>
+        <MusicPlayerProvider>
         <>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
@@ -32,7 +34,8 @@ export default function RootLayout() {
           <LibraryPlayerSync />
           <MiniPlayer />
         </>
-      </MusicPlayerProvider>
+        </MusicPlayerProvider>
+      </PlaylistProvider>
     </LibraryProvider>
   );
 }

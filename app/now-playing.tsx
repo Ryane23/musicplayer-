@@ -75,14 +75,12 @@ export default function NowPlayingScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.topGlow} />
-
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={handleClose}>
           <Ionicons name="chevron-down" size={28} color={Spotify.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <ThemedText style={styles.headerLabel}>PLAYING FROM</ThemedText>
+          <ThemedText style={styles.headerLabel}>NOW PLAYING</ThemedText>
           <ThemedText style={styles.headerAlbum} numberOfLines={1}>
             {track.album}
           </ThemedText>
@@ -96,8 +94,9 @@ export default function NowPlayingScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.main}>
-        <View style={styles.artworkWrap}>
+      <View style={styles.artworkSection}>
+        <View style={styles.artworkGlow} />
+        <View style={styles.artworkFrame}>
           {track.coverUri ? (
             <Image source={{ uri: track.coverUri }} style={styles.artwork} />
           ) : (
@@ -106,7 +105,14 @@ export default function NowPlayingScreen() {
             </View>
           )}
         </View>
+        {showVisualizer ? (
+          <View style={styles.visualizerWrap}>
+            <AudioVisualizer isPlaying={isPlaying} compact />
+          </View>
+        ) : null}
+      </View>
 
+      <View style={styles.playerPanel}>
         <View style={styles.trackRow}>
           <View style={styles.trackInfo}>
             <ThemedText style={styles.title} numberOfLines={2}>
@@ -125,15 +131,13 @@ export default function NowPlayingScreen() {
           </TouchableOpacity>
         </View>
 
-        {showVisualizer ? <AudioVisualizer isPlaying={isPlaying} /> : null}
-
         <View style={styles.progressBlock}>
           <SeekBar
             progress={progress / 100}
             onSeek={(ratio) => void seekTo(ratio * trackDuration)}
             trackColor={Spotify.card}
-            fillColor={Spotify.textPrimary}
-            height={4}
+            fillColor={Spotify.green}
+            height={5}
           />
           <View style={styles.timeRow}>
             <ThemedText style={styles.time}>{formatDuration(position)}</ThemedText>
@@ -246,23 +250,14 @@ export default function NowPlayingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Spotify.black,
-  },
-  topGlow: {
-    position: 'absolute',
-    top: -60,
-    alignSelf: 'center',
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.7,
-    backgroundColor: Spotify.green,
-    opacity: 0.07,
-    borderRadius: SCREEN_WIDTH,
+    backgroundColor: Spotify.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 4,
+    zIndex: 2,
   },
   headerBtn: {
     width: 48,
@@ -277,8 +272,8 @@ const styles = StyleSheet.create({
   headerLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: Spotify.textSecondary,
-    letterSpacing: 1,
+    color: Spotify.textMuted,
+    letterSpacing: 1.2,
   },
   headerAlbum: {
     fontSize: 13,
@@ -286,28 +281,51 @@ const styles = StyleSheet.create({
     color: Spotify.textPrimary,
     marginTop: 2,
   },
-  main: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'flex-end',
-    paddingBottom: 16,
-  },
-  artworkWrap: {
+  artworkSection: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    paddingHorizontal: 32,
+    paddingBottom: 8,
+  },
+  artworkGlow: {
+    position: 'absolute',
+    width: ART_SIZE + 48,
+    height: ART_SIZE + 48,
+    borderRadius: (ART_SIZE + 48) / 2,
+    backgroundColor: Spotify.green,
+    opacity: 0.12,
+  },
+  artworkFrame: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    boxShadow: '0px 20px 48px rgba(0,0,0,0.6)',
   },
   artwork: {
     width: ART_SIZE,
     height: ART_SIZE,
-    borderRadius: 8,
-    boxShadow: '0px 16px 40px rgba(0,0,0,0.55)',
+    borderRadius: 16,
   },
   artworkFallback: {
     backgroundColor: Spotify.card,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  visualizerWrap: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  playerPanel: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: Spotify.elevated,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.06)',
   },
   trackRow: {
     flexDirection: 'row',
@@ -384,7 +402,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Spotify.textPrimary,
+    backgroundColor: Spotify.green,
     alignItems: 'center',
     justifyContent: 'center',
   },
