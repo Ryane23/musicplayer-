@@ -101,7 +101,7 @@ test('fuzzy-matches partial title', () => {
 
 console.log('\nTypeScript check:');
 try {
-  execSync('npx tsc --noEmit', { stdio: 'inherit' });
+  execSync('./node_modules/.bin/tsc --noEmit', { stdio: 'inherit' });
   passed += 1;
   console.log('  ✓ tsc --noEmit');
 } catch {
@@ -111,7 +111,7 @@ try {
 
 console.log('\nLint:');
 try {
-  execSync('npm run lint', { stdio: 'inherit' });
+  execSync('./node_modules/.bin/eslint .', { stdio: 'inherit' });
   passed += 1;
   console.log('  ✓ eslint');
 } catch {
